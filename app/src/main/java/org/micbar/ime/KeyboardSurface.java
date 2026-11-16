@@ -30,7 +30,9 @@ final class KeyboardSurface extends FrameLayout {
         boolean floating = panel != null && panel.getVisibility() == VISIBLE && panel.floating();
         int width = MeasureSpec.getSize(widthSpec) - getPaddingLeft() - getPaddingRight();
         if (panel != null) {
-            int preferred = Math.max(dp(340), Math.min(dp(490), Math.round(width * .56f)));
+            int standard = Math.min(dp(404), Math.max(dp(304), Math.round(MeasureSpec.getSize(heightSpec) * .91f)));
+            String size = prefs.getString("floatingWidth", "标准");
+            int preferred = Math.round(standard * ("窄".equals(size) ? .86f : "宽".equals(size) ? 1.18f : 1f));
             panel.getLayoutParams().width = floating ? Math.min(preferred, Math.max(1, width * 4 / 5)) : LayoutParams.MATCH_PARENT;
         }
         super.onMeasure(widthSpec, heightSpec);

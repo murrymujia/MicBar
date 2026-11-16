@@ -17,9 +17,13 @@ final class ToolButton extends ImageButton {
         setPadding(0,0,0,0);
         setFocusable(true);
     }
-    void display(Icon glyph,String label,int foreground,int fill) {
+    void glyph(Icon glyph,String label,int foreground) {
         icon=glyph; color=foreground;
         setContentDescription(label); setTooltipText(label);
+        invalidate();
+    }
+    void display(Icon glyph,String label,int foreground,int fill) {
+        glyph(glyph,label,foreground);
         GradientDrawable face=new GradientDrawable();
         face.setShape(GradientDrawable.OVAL); face.setColor(fill);
         GradientDrawable mask=new GradientDrawable();

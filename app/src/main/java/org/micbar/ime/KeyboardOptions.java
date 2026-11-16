@@ -26,11 +26,11 @@ final class KeyboardOptions {
     }
 
     void refresh() {
-        String theme=prefs.getString("keyTheme","深色");
+        String theme=prefs.getString("keyTheme","跟随系统");
         boolean night=(context.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)==Configuration.UI_MODE_NIGHT_YES;
         dark=theme.equals("深色") || (theme.equals("跟随系统") && night);
-        base=dark?0xff191a21:0xffe1e3eb;
-        key=dark?0xff2b2d36:0xfffafaff;
+        base=dark?0xff24252a:0xffeeedf5;
+        key=dark?0xff38393f:0xffffffff;
         function=dark?0xff363b4e:0xffcbd0df;
         primary=dark?0xffb5c7ff:0xffc1d6ff;
         onPrimary=0xff233653;
@@ -55,13 +55,15 @@ final class KeyboardOptions {
             int standard=Math.max(40,Math.min(48,Math.round(column*1.18f)));
             return standard+(h.equals("紧凑")?-4:h.equals("宽松")?6:0);
         }
-        if(!shortLandscape()) return normal;
-        // Four letter rows share the height left after the toolbar and gaps.
-        int budget=context.getResources().getConfiguration().screenHeightDp*44/100;
-        return Math.min(normal,Math.max(24,(budget-47)/4));
-
+        if (!landscape()) return normal;
+        int rows = numberRow() ? 5 : 4;
+        int budget = Math.round(context.getResources().getConfiguration().screenHeightDp * .74f);
+        return Math.max(22, Math.min(normal, (budget - 92) / rows));
     }
-    boolean numberRow() { return !shortLandscape() && prefs.getBoolean("keyNumbers",!phonePortrait()); }
+    boolean landscape() {
+        return context.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
+    }
+    boolean numberRow() { return prefs.getBoolean("keyNumbers", !phonePortrait() && !landscape()); }
     boolean borders() { return prefs.getBoolean("keyBorders",true); }
     GradientDrawable shape(int color,int radius) {
         GradientDrawable g=new GradientDrawable(); g.setColor(color);g.setCornerRadius(dp(radius));return g;
@@ -156,9 +158,10 @@ final class KeyboardOptions {
         LinearLayout slots=new LinearLayout(context);slots.setOrientation(LinearLayout.VERTICAL);box.addView(slots);
         shortcuts(slots,-1);
         section(box,"外观与布局");
-        choice(box,"主题","keyTheme","深色","跟随系统","浅色","深色");
+        choice(box,"主题","keyTheme","跟随系统","跟随系统","浅色","深色");
         choice(box,"键盘高度","keyHeight","标准","紧凑","标准","宽松");
-        toggle(box,"独立数字行","keyNumbers",!phonePortrait());
+        choice(box,"横屏宽度","floatingWidth","标准","窄","标准","宽");
+        toggle(box,"独立数字行","keyNumbers",!phonePortrait() && !landscape());
         toggle(box,"显示字母键底色","keyBorders",true);
         section(box,"输入方式");
         toggle(box,"自动学习选词和听写改字","learnWords",true);

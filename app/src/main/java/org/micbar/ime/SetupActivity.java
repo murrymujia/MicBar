@@ -23,6 +23,8 @@ public final class SetupActivity extends Activity {
     private LinearLayout content;
     private InputMethodManager manager;
     private static final int INK = 0xff152b27, MUTED = 0xff465f59, ACCENT = 0xff195950;
+    private static final int IMPORT_MODEL=74;
+    private Button writerModel;
     private boolean asked;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -67,12 +69,16 @@ public final class SetupActivity extends Activity {
         sample.setTextColor(INK); sample.setHintTextColor(MUTED); sample.setBackground(tint(0xffe8efe9,14));
         sample.setPadding(dp(16),dp(12),dp(16),dp(12)); add(sample,8,-2);
         label("在 O+ 里使用",19,true,24);
-        label("选「平板键盘」并点电脑的输入框。远控中默认只显示四个按钮，可拖动麦克风挪开整排。其他应用默认展开打字键盘。横屏时可拖动键盘底部的短横条，点工具栏的向下箭头可隐藏整个输入法。",15,false,6);
+        label("选「平板键盘」并点电脑的输入框。远控中默认只显示四个按钮，可拖动麦克风挪开整排。其他应用默认展开打字键盘。横屏时可拖动键盘底部的短横条，点悬浮面板左下角的向下箭头可隐藏整个输入法。",15,false,6);
         Button typing=new Button(this);typing.setText("键盘设置");
         typing.setOnClickListener(v -> showKeyboardSettings());add(typing,8,-2);
         Button words=new Button(this);words.setText("个人词典");words.setOnClickListener(v->wordList());add(words,4,-2);
         if (BuildConfig.HAS_WRITER) {
             label("离线写作",19,true,18);
+            writerModel = new Button(this);
+            refreshWriter();
+            writerModel.setOnClickListener(v -> chooseWriter());
+            add(writerModel,4,-2);
         label("暂停听写后长按麦克风，可整理、校对、缩短或翻译草稿；打字时也可以先选中文字。长按工具栏退格可撤销刚填入的听写。",15,false,6);
         }
         label("从其他键盘切回来",19,true,24);
@@ -128,6 +134,37 @@ public final class SetupActivity extends Activity {
         Button about=new Button(this); about.setText("隐私与开源许可");
         about.setOnClickListener(v -> showAbout()); add(about,10,-2);
         setContentView(viewport);
+    }
+    private void refreshWriter() {
+        if(writerModel!=null) writerModel.setText("写作模型 · "+(WriterPack.enabled(this)?WriterPack.NAME:"内置 0.5B"));
+    }
+    private void chooseWriter() {
+        boolean installed=WriterPack.file(this).length()==WriterPack.SIZE;
+        new android.app.AlertDialog.Builder(this).setTitle("离线写作模型")
+                .setMessage("增强模型 Qwen3-4B-Instruct-2507，Q4_K_M 约 2.50 GB。先下载文件，再导入一次。建议有充足内存的 ARM64 设备使用。")
+                .setNeutralButton("使用内置 0.5B",(d,w)->{WriterPack.select(this,false);refreshWriter();})
+                .setNegativeButton("下载模型",(d,w)->{
+                    try { startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(WriterPack.URL))); }
+                    catch(ActivityNotFoundException ex){Toast.makeText(this,"请先安装浏览器",Toast.LENGTH_LONG).show();}
+                })
+                .setPositiveButton(installed?"启用 4B":"导入 4B 文件",(d,w)->{
+                    if(installed){WriterPack.select(this,true);refreshWriter();return;}
+                    Intent open=new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*");
+                    startActivityForResult(open,IMPORT_MODEL);
+                }).show();
+    }
+    @Override protected void onActivityResult(int request,int result,Intent data) {
+        super.onActivityResult(request,result,data);
+        if(request!=IMPORT_MODEL || result!=RESULT_OK || data==null || data.getData()==null) return;
+        Uri uri=data.getData();
+        writerModel.setEnabled(false);writerModel.setText("正在校验并导入模型…");
+        new Thread(()->{
+            String message;
+            try { WriterPack.load(getApplicationContext(),uri);message="已启用本机 4B 写作模型"; }
+            catch(Exception e){message="导入失败 · "+e.getMessage();}
+            final String resultText=message;
+            runOnUiThread(()->{if(!isDestroyed() && !isFinishing()){writerModel.setEnabled(true);refreshWriter();Toast.makeText(this,resultText,Toast.LENGTH_LONG).show();}});
+        },"micbar-model-import").start();
     }
     private void setBubble(boolean enabled) {
         getSharedPreferences("micbar",MODE_PRIVATE).edit().putBoolean(EdgeSwitcher.ENABLED,enabled).apply();

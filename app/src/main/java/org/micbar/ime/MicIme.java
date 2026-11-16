@@ -15,6 +15,8 @@ public final class MicIme extends InputMethodService {
     private enum State { IDLE, PREPARING, LISTENING, FINISHING }
     private State state = State.IDLE;
     private enum ToolbarReturn { IDLE, FILL_PENDING, SEND_PENDING, READY }
+    private long commits;
+    private boolean enteredText;
     private ToolbarReturn toolbarReturn = ToolbarReturn.IDLE;
     private long generation;
     private InputConnection target;
@@ -124,6 +126,7 @@ public final class MicIme extends InputMethodService {
                 undoText="";aiOld="";aiNew="";
                 String replaced=speechInsert && panel.permitsLearning()?selection():"";
                 boolean ok=current.commitText(text,1);
+                if (ok && !text.isEmpty()) {enteredText=true;commits++;}
                 if(ok && speechInsert && panel.permitsLearning()) {
                     undoEnd=selectionEnd(current);
                     if(undoEnd>=0) {undoText=text;undoOriginal=replaced;}
@@ -137,6 +140,9 @@ public final class MicIme extends InputMethodService {
             }
             public void hideInput() { requestHideSelf(0); }
             public void toggleVoice() { tap(); }
+            public void editingStarted() {
+                if (toolbarReturn==ToolbarReturn.READY) setToolbarReturn(ToolbarReturn.IDLE);
+            }
             public void tapToolbarReturn() { handleToolbarReturn(); }
             public void acceptVoice() { finishForEditor(false); }
             public void shortcut(VoiceShortcut action) {runShortcut(action);}
@@ -293,13 +299,24 @@ public final class MicIme extends InputMethodService {
             finishForEditor(false);
             setToolbarReturn(secondTap ? ToolbarReturn.SEND_PENDING : ToolbarReturn.FILL_PENDING);
         } else if (panel.hasText()) {
-            if (panel.insertDraft()) setToolbarReturn(ToolbarReturn.READY);
+            // Direct-mode Pinyin commits its candidate while finishing composition.
+            long before=commits;
+            if (panel.insertDraft() || commits!=before) setToolbarReturn(ToolbarReturn.READY);
         } else if (toolbarReturn == ToolbarReturn.READY) {
             sendFromToolbar();
+        } else if (enteredText || hasEditorText()) {
+            setToolbarReturn(ToolbarReturn.READY);
         }
+    }
+    private boolean hasEditorText() {
+        InputConnection ic = getCurrentInputConnection();
+        return ic != null && (!android.text.TextUtils.isEmpty(ic.getTextBeforeCursor(1,0))
+                || !android.text.TextUtils.isEmpty(ic.getTextAfterCursor(1,0))
+                || !android.text.TextUtils.isEmpty(ic.getSelectedText(0)));
     }
 
     private void sendFromToolbar() {
+        enteredText=false;
         setToolbarReturn(ToolbarReturn.IDLE);
         InputConnection ic = getCurrentInputConnection();
         if (ic == null || ic != draftTarget || !isInputViewShown()) return;
@@ -311,6 +328,7 @@ public final class MicIme extends InputMethodService {
     }
 
     private void pressEditorKey(int code) {
+        if (code==KeyEvent.KEYCODE_DEL || code==KeyEvent.KEYCODE_ENTER) enteredText=false;
         setToolbarReturn(ToolbarReturn.IDLE);
         InputConnection current=getCurrentInputConnection();
         if(current==null || current!=draftTarget || !isInputViewShown()) return;
@@ -350,6 +368,7 @@ public final class MicIme extends InputMethodService {
         panel.showKeyboard(keyboard); strip.requestLayout();
     }
     private void endEditor() {
+        enteredText=false;
         aiOld="";aiNew="";caretVersion++;undoText="";undoOriginal="";undoEnd=-1;cancel(); draftTarget=null;remote=false;obscured=false;caretBounds=null;markerInvisible=false;recentInput="";schedulePreview();
         if(panel!=null) { panel.reset();panel.setVisibility(View.GONE); }
     }

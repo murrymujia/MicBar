@@ -11,7 +11,7 @@ import java.util.Locale;
 
 /** Direct typing and a separately editable dictation draft share one keyboard. */
 final class DraftPanel extends LinearLayout {
-    interface Host { boolean insert(String text); boolean insertSpeech(String text,boolean mark); boolean undo(); String selection(); long caretVersion(); boolean rewriteSelection(String old,String edit); boolean undoRewrite(); void hideInput(); void picker(); void toggleVoice(); void acceptVoice(); void tapToolbarReturn(); void enterAfterVoice(); void editorKey(int code); void shortcut(VoiceShortcut action); void retakeVoice(); void positionToolbar(float heightFraction); }
+    interface Host { boolean insert(String text); boolean insertSpeech(String text,boolean mark); boolean undo(); String selection(); long caretVersion(); boolean rewriteSelection(String old,String edit); boolean undoRewrite(); void hideInput(); void picker(); void toggleVoice(); void acceptVoice(); void tapToolbarReturn(); void editingStarted(); void enterAfterVoice(); void editorKey(int code); void shortcut(VoiceShortcut action); void retakeVoice(); void positionToolbar(float heightFraction); }
     private final Host host;
     private final PersonalWords personal;
     private final DraftLearning learning=new DraftLearning();
@@ -236,8 +236,8 @@ final class DraftPanel extends LinearLayout {
                 && ((KeyboardSurface)getParent()).drag(v,e));
         grip = new View(context);
         grip.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        dragHandle.addView(grip,new FrameLayout.LayoutParams(dp(42),dp(4),Gravity.CENTER));
-        addView(dragHandle,new LayoutParams(-1,dp(24)));
+        dragHandle.addView(grip,new FrameLayout.LayoutParams(dp(70),dp(4),Gravity.CENTER));
+        addView(dragHandle,new LayoutParams(-1,dp(36)));
         showKeyboard(false); endVoice();
     }
     private boolean dragMic(View v,MotionEvent e) {
@@ -343,7 +343,7 @@ final class DraftPanel extends LinearLayout {
         if(!expanded()) buttonWidth=Math.min(dp(48),Math.max(1,(usable-(preview?Math.min(dp(100),usable/3):0))/(4+count)));
         for(int i=0;i<count;i++) shortcutRow.getChildAt(i).getLayoutParams().width=buttonWidth;
         int barHeight=dp(50);
-        if(expanded() && options.shortLandscape()) barHeight=dp(38);
+        if(floating()) barHeight=dp(options.shortLandscape()?42:46);
         if(expanded() && options.phonePortrait()) barHeight=dp(44);
         bar.getLayoutParams().height=barHeight;
         for(int i=0;i<bar.getChildCount();i++) {
@@ -400,11 +400,16 @@ final class DraftPanel extends LinearLayout {
         ink=options.ink; muted=options.secondary; blue=dark?0xffb9ccff:0xff265a9b;
         accent=dark?0xff354763:0xffd4e3ff;
     }
+    private ToolButton typingReturn;
     private boolean sendAction;
     void showSendAction(boolean value) {
         if (sendAction == value) return;
         sendAction = value;
         drawReturn();
+        updateTypingReturn();
+    }
+    private void updateTypingReturn() {
+        if (typingReturn!=null) typingReturn.glyph(sendAction?ToolButton.Icon.SEND:ToolButton.Icon.ENTER, sendAction?"发送":"确认输入",options.onPrimary);
     }
     private void drawReturn() {
         enter.display(sendAction ? ToolButton.Icon.SEND : ToolButton.Icon.ENTER,
@@ -414,6 +419,7 @@ final class DraftPanel extends LinearLayout {
     private void applyColors() {
         readColors();
         bar.setBackground(shape(expanded()?canvas:surface,28));
+        bar.setElevation(floating()?0:dp(1));
         draft.setTextColor(ink);draft.setHintTextColor(muted);toolbarSpace.setTextColor(ink);
         draft.setHighlightColor(dark?0xff52678a:0xffc0d7fc);
         shortcutRow.setVisibility(expanded()?GONE:VISIBLE);
@@ -427,12 +433,24 @@ final class DraftPanel extends LinearLayout {
         edit.display(expanded()?ToolButton.Icon.FOLD:ToolButton.Icon.KEYBOARD,expanded()?"折叠键盘":"展开键盘",muted,0);
         submit.display(ToolButton.Icon.CHECK,"填入草稿",blue,accent);
         hide.display(ToolButton.Icon.DOWN,"隐藏输入法",muted,0);
+        if (floating() && hide.getParent()==bar) {
+            bar.removeView(settings);bar.addView(settings,0,new LayoutParams(dp(44),dp(44)));
+            bar.removeView(hide);
+            dragHandle.addView(hide,new FrameLayout.LayoutParams(dp(48),-1,Gravity.LEFT));
+            bar.removeView(dictate);bar.addView(dictate,new LayoutParams(dp(44),dp(44)));
+        } else if (!floating() && hide.getParent()==dragHandle) {
+            bar.removeView(settings);bar.addView(settings,bar.indexOfChild(edit),new LayoutParams(dp(48),dp(48)));
+            dragHandle.removeView(hide);bar.addView(hide,new LayoutParams(dp(48),dp(48)));
+            bar.removeView(dictate);bar.addView(dictate,0,new LayoutParams(dp(48),dp(48)));
+        }
         dragHandle.setVisibility(floating()?VISIBLE:GONE);
         grip.setBackground(shape(muted,4));
         if (floating()) {
-            setBackground(shape(canvas,16));
+            setElevation(dp(3));
+            setBackground(shape(canvas,18));
             setClipToOutline(true);
         } else {
+            setElevation(0);
             setClipToOutline(false);
             setBackgroundColor(expanded()?canvas:0);
         }
@@ -467,14 +485,14 @@ final class DraftPanel extends LinearLayout {
         v.setSoundEffectsEnabled(false);
         v.setOnClickListener(key->{feedback(key);action.run();});
         LayoutParams lp=new LayoutParams(0,dp(options.rowHeight()),weight);
-        int h=getResources().getConfiguration().screenWidthDp>=600?5:2;
-        int vertical=options.shortLandscape()?1:options.phonePortrait()?3:4;
-        int corner=options.phonePortrait()?Math.min(radius,radius>=26?16:7):radius;
+        int h=floating()?2:getResources().getConfiguration().screenWidthDp>=600?5:2;
+        int vertical=floating()?4:options.shortLandscape()?1:options.phonePortrait()?3:4;
+        int corner=floating()?(radius>=26?22:6):options.phonePortrait()?Math.min(radius,radius>=26?16:7):radius;
         v.setBackground(new android.graphics.drawable.InsetDrawable(options.face(fill,corner),dp(h),dp(vertical),dp(h),dp(vertical)));
         row.addView(v,lp);
     }
     private TextView textKey(LinearLayout row,String label,float weight,int size,int fill,int radius,Runnable action) {
-        int cap=options.shortLandscape()?18:options.phonePortrait()?21:size;
+        int cap=floating()?22:options.shortLandscape()?18:options.phonePortrait()?21:size;
         TextView key=labelKey(label,Math.min(size,cap));attachKey(row,key,weight,fill,radius,action);return key;
     }
     private ToolButton iconKey(LinearLayout row,ToolButton.Icon glyph,String name,float weight,int fill,Runnable action) {
@@ -670,7 +688,7 @@ final class DraftPanel extends LinearLayout {
     private void renderKeys() {
         dismissPunctuation();
         keys.removeAllViews();
-        int pad=getResources().getConfiguration().screenWidthDp>=600?16:0;
+        int pad=floating()?2:getResources().getConfiguration().screenWidthDp>=600?16:0;
         keys.setPadding(dp(pad),0,dp(pad),dp(2));
         int letters=options.borders()?options.key:canvas;
         if(!symbols && options.numberRow()) characterRow("1234567890",letters,false);
@@ -719,7 +737,9 @@ final class DraftPanel extends LinearLayout {
         TextView periodKey=textKey(bottom,period,1,21,options.function,12,()->type(period));
         periodKey.setContentDescription(period+"，长按选择常用标点");
         periodKey.setOnLongClickListener(anchor->{showPunctuation(anchor);return true;});
-        iconKey(bottom,ToolButton.Icon.ENTER,drafting?"填入并回车":"回车",1.5f,options.function,this::pressEnter);
+        typingReturn=iconKey(bottom,ToolButton.Icon.ENTER,"确认输入",1.5f,options.primary,host::tapToolbarReturn);
+        typingReturn.setOnLongClickListener(v->{pressEnter();return true;});
+        updateTypingReturn();
     }
     private void symbolKeys(LinearLayout row,String tokens,int fill) {
         for(String token:tokens.split(" ")) {
@@ -760,7 +780,22 @@ final class DraftPanel extends LinearLayout {
         for(char ch:values.toCharArray()) {
             String value=String.valueOf(ch);
             final String label=shift&&!symbols?value.toUpperCase(Locale.ROOT):value;
-            textKey(row,label,1,24,fill,12,()->type(label));
+            int index="qwertyuiop".indexOf(ch);
+            if (floating() && !options.numberRow() && index>=0) {
+                String number=String.valueOf((index+1)%10);
+                TextView key=new TextView(getContext()) {
+                    private final android.graphics.Paint hint=new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+                    @Override protected void onDraw(android.graphics.Canvas c) {
+                        super.onDraw(c);
+                        hint.setTextAlign(android.graphics.Paint.Align.RIGHT);
+                        hint.setTextSize(dp(9));hint.setColor(muted);
+                        c.drawText(number,getWidth()-dp(5),dp(13),hint);
+                    }
+                };
+                key.setText(label);key.setTextColor(ink);key.setTextSize(21);key.setGravity(Gravity.CENTER);
+                attachKey(row,key,1,fill,12,()->type(label));
+                key.setOnLongClickListener(v->{type(number);return true;});
+            } else textKey(row,label,1,24,fill,12,()->type(label));
         }
     }
     private void characterRow(String values,int fill,boolean inset) {
@@ -791,6 +826,7 @@ final class DraftPanel extends LinearLayout {
         });
     }
     private void type(String s) {
+        host.editingStarted();
         char ch=s.charAt(0);
         if(!english && !symbols && (Character.isUpperCase(ch) || !identifier.isEmpty() && asciiWord(ch))) {
             if(identifier.isEmpty()) identifier=composition.raw;
@@ -814,13 +850,17 @@ final class DraftPanel extends LinearLayout {
         boolean loading=!ready && !english && !symbols;
         candidateScroll.setVisibility(expanded() && !preferencesOpen && (composing || loading)?VISIBLE:GONE);
         // Let the suggestion strip take the tool row while spelling; editing keys remain on the keyboard.
-        if(options.phonePortrait() || floating()) {
+        if (floating()) {
+            delete.setVisibility(GONE);enter.setVisibility(GONE);
+            settings.setVisibility(!composing?VISIBLE:GONE);
+        } else if(options.phonePortrait()) {
             boolean showActions=candidateScroll.getVisibility()!=VISIBLE;
             delete.setVisibility(showActions?VISIBLE:GONE);
             enter.setVisibility(showActions?VISIBLE:GONE);
             settings.setVisibility(expanded() && showActions?VISIBLE:GONE);
         }
-        toolbarSpace.setVisibility(expanded() && !drafting && (options.shortLandscape() || !inlineCandidates || candidateScroll.getVisibility()!=VISIBLE)?VISIBLE:GONE);
+        if(!expanded()) { delete.setVisibility(VISIBLE);enter.setVisibility(VISIBLE); }
+        toolbarSpace.setVisibility(expanded() && !drafting && (!floating() || !composing) && (options.shortLandscape() || !inlineCandidates || candidateScroll.getVisibility()!=VISIBLE)?VISIBLE:GONE);
         if(!composing) {
             if(loading) candidate(error.isEmpty()?"正在打开离线词库…":error,this::openEngine,false);
             return;
@@ -894,6 +934,7 @@ final class DraftPanel extends LinearLayout {
         }
     }
     private void backspace() {
+        host.editingStarted();
         if(!identifier.isEmpty()) {
             identifier=identifier.substring(0,identifier.length()-1);composition.raw=identifier;renderCandidates();updateSubmit();return;
         }

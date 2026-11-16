@@ -45,10 +45,28 @@ final class LocalWriter {
         for(int i=0;i<a.length() && next<b.length();i++) if(a.charAt(i)==b.charAt(next)) next++;
         return next==b.length();
     }
+    private static boolean closeEdit(String source,String answer) {
+        String a=source.replaceAll("[\\p{P}\\s]",""),b=answer.replaceAll("[\\p{P}\\s]","");
+        if(!a.replaceAll("[^不没未勿无非]","").equals(b.replaceAll("[^不没未勿无非]",""))) return false;
+        int limit=Math.max(2,a.length()/4);
+        if(b.isEmpty() || Math.abs(a.length()-b.length())>limit) return false;
+        int[] row=new int[b.length()+1];
+        for(int j=0;j<row.length;j++) row[j]=j;
+        for(int i=1;i<=a.length();i++){
+            int prev=row[0];row[0]=i;
+            for(int j=1;j<=b.length();j++){
+                int old=row[j];
+                row[j]=Math.min(Math.min(row[j]+1,row[j-1]+1),prev+(a.charAt(i-1)==b.charAt(j-1)?0:1));
+                prev=old;
+            }
+        }
+        return row[b.length()]<=limit;
+    }
     private volatile boolean cancelled;
     private Process process;
     synchronized void cancel() {cancelled=true;if(process!=null) process.destroyForcibly();}
     private static synchronized File model(Context c) throws IOException {
+        if(WriterPack.enabled(c)) return WriterPack.file(c);
         File file=new File(c.getNoBackupFilesDir(),"qwen25-05-q4km.gguf");
         if(file.length()==491400032L) return file;
         File tmp=new File(file.getParentFile(),"qwen25-model.part");
@@ -97,7 +115,11 @@ final class LocalWriter {
             if(!raw.endsWith("[end of text]")) throw new IOException("建议未完整生成，请缩小选区");
             String answer=raw.substring(0,raw.lastIndexOf("[end of text]")).trim();
             if(answer.isEmpty() || answer.contains("<|")) throw new IOException("未生成有效建议");
-            if(mode==Mode.CLEAN && (!onlyRemovesWords(source,answer) || !preservesDetails(text,answer))) return source;
+            if(mode==Mode.CLEAN) {
+                boolean negativesMatch=source.replaceAll("[^不没未勿无非]","").equals(answer.replaceAll("[^不没未勿无非]",""));
+                boolean modest=onlyRemovesWords(source,answer) || (weights.equals(WriterPack.file(c)) && closeEdit(source,answer));
+                if(!modest || !negativesMatch || !preservesDetails(text,answer)) return source;
+            }
             if(!preservesDetails(text,answer)) throw new IOException("建议改变了数字或技术名称，已保留原文");
             return answer;
         } finally {

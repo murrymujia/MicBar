@@ -365,7 +365,7 @@ public final class MicIme extends InputMethodService {
             panel.startEditor(info);
             String app=info.packageName;
             remote="com.oplus.remotecontrol".equals(app) || "com.oplus.linker".equals(app)
-                    || "com.oplus.padconnect".equals(app);
+                    || "com.oplus.padconnect".equals(app) || "com.netease.uuremote".equals(app);
             obscured=true;previewConfirmed=false;
             openPanel(!remote);
             InputConnection ic=getCurrentInputConnection();

@@ -1,13 +1,14 @@
 name: iOS simulator
 on:
   push:
+    branches: ["**"]
     paths: ['ios/**', '.github/workflows/ios.yml', 'app/src/main/assets/pinyin-common.tsv']
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   simulator:
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - run: brew list xcodegen >/dev/null 2>&1 || brew install xcodegen

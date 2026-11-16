@@ -18,6 +18,10 @@ jobs:
           xcodegen generate
           xcodebuild -scheme MicBar -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
           cd build/Build/Products/Release-iphonesimulator
+          for bundle in MicBar.app MicBar.app/PlugIns/MicBarKeyboard.appex; do
+            test "$(plutil -extract CFBundleShortVersionString raw "$bundle/Info.plist")" = 0.1.1
+          done
+          test -f MicBar.app/PlugIns/MicBarKeyboard.appex/continuations.tsv
           test -f MicBar.app/PlugIns/MicBarKeyboard.appex/characters.tsv
           test -f MicBar.app/PlugIns/MicBarKeyboard.appex/pinyin-common.tsv
           ditto -c -k --keepParent MicBar.app MicBar-iOS-Simulator.zip

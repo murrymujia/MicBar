@@ -6,6 +6,28 @@ final class KeyboardController: UIInputViewController {
     private var chinese = true, shifted = false, symbols = false, folded = false
     private var height: NSLayoutConstraint?
     private var narrowHeight = false
+    private var portrait = true, showTools = false
+    private lazy var continuations: [String: [String]] = {
+        guard let url = Bundle(for: KeyboardController.self).url(forResource: "continuations", withExtension: "tsv"),
+              let text = try? String(contentsOf: url, encoding: .utf8) else { return [:] }
+        var words: [String: [String]] = [:]
+        for line in text.split(separator: "\n") {
+            let fields = line.split(separator: "\t").map(String.init)
+            if fields.count > 1 { words[fields[0]] = Array(fields.dropFirst()) }
+        }
+        return words
+    }()
+    private func following() -> [String] {
+        guard portrait, chinese, !symbols, !folded, textDocumentProxy.selectedText?.isEmpty != false,
+              let context = textDocumentProxy.documentContextBeforeInput, let last = context.last,
+              last.isLetter else { return [] }
+        var tail = context.suffix(12)
+        while !tail.isEmpty {
+            if let words = continuations[String(tail)] { return words }
+            tail = tail.dropFirst()
+        }
+        return last.unicodeScalars.contains { (0x4E00...0x9FFF).contains($0.value) } ? ["的", "了", "和"] : []
+    }
     private var lastDocument: UUID?
     private lazy var dictionary: [String: [String]] = {
         var entries: [String: [String]] = [:]
@@ -40,7 +62,10 @@ final class KeyboardController: UIInputViewController {
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
         let compact = traitCollection.verticalSizeClass == .compact
-        if compact != narrowHeight { narrowHeight = compact; redraw() }
+        let vertical = view.window?.windowScene?.interfaceOrientation.isPortrait ?? !compact
+        if compact != narrowHeight || vertical != portrait {
+            narrowHeight = compact; portrait = vertical; redraw()
+        }
     }
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
@@ -52,9 +77,13 @@ final class KeyboardController: UIInputViewController {
         let document = textDocumentProxy.documentIdentifier
         if lastDocument != document {
             lastDocument = document
-            spelling = ""; shifted = false
-            if isViewLoaded { redraw() }
+            spelling = ""; shifted = false; showTools = false
         }
+        if isViewLoaded { redraw() }
+    }
+    override func selectionDidChange(_ textInput: UITextInput?) {
+        super.selectionDidChange(textInput)
+        if isViewLoaded { redraw() }
     }
     private func row() -> UIStackView {
         let line = UIStackView()
@@ -84,13 +113,20 @@ final class KeyboardController: UIInputViewController {
         if spelling.isEmpty { textDocumentProxy.deleteBackward() } else { spelling.removeLast() }
         redraw()
     }
+    private func dictionaryForStrip() -> [String] {
+        if folded { return [] }
+        if spelling.isEmpty { return following() }
+        let candidates = dictionary[spelling] ?? []
+        return portrait ? candidates + [spelling] : [spelling] + candidates
+    }
     private func redraw() {
         rows.arrangedSubviews.forEach { $0.removeFromSuperview() }
         rows.distribution = .fillEqually
         height?.constant = folded ? 42 : narrowHeight ? 164 : 220
         let tools = row()
-        if spelling.isEmpty {
-            key(folded ? "展开键盘" : "收起按键", tools) { self.folded.toggle(); self.redraw() }
+        let words = dictionaryForStrip()
+        if words.isEmpty || showTools {
+            key(folded ? "展开键盘" : "收起按键", tools) { self.folded.toggle(); self.showTools = false; self.redraw() }
             key("退格", tools) { self.backspace() }
             key("回车", tools) { self.textDocumentProxy.insertText("\n") }
             key("隐藏", tools) { self.dismissKeyboard() }
@@ -106,8 +142,10 @@ final class KeyboardController: UIInputViewController {
                 items.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor),
                 items.heightAnchor.constraint(equalTo: scroll.frameLayoutGuide.heightAnchor)])
             tools.addArrangedSubview(scroll)
-            for word in [spelling] + (dictionary[spelling] ?? []) {
-                key(word, items) { self.commit(word); self.redraw() }.widthAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
+            for word in words {
+                let button = key(word, items) { self.commit(word); self.redraw() }
+                if portrait { button.backgroundColor = .clear; button.tintColor = .label }
+                button.widthAnchor.constraint(greaterThanOrEqualToConstant: portrait ? 68 : 44).isActive = true
             }
         }
         if folded { return }
@@ -120,6 +158,7 @@ final class KeyboardController: UIInputViewController {
             for c in letters {
                 let symbol = shifted && !symbols ? String(c).uppercased() : String(c)
                 key(symbol, line) {
+                    self.showTools = false
                     if self.chinese && !self.symbols && !self.shifted { self.spelling.append(c) }
                     else { self.commit(self.spelling + symbol) }
                     self.shifted = false
@@ -134,6 +173,9 @@ final class KeyboardController: UIInputViewController {
         globe.accessibilityLabel = "切换输入法"
         globe.addTarget(self, action: #selector(handleInputModeList(from:with:)), for: .allTouchEvents)
         bottom.addArrangedSubview(globe)
+        if portrait && chinese && !symbols && !words.isEmpty {
+            key(showTools ? "候选" : "工具", bottom) { self.showTools.toggle(); self.redraw() }
+        }
         key(symbols ? "ABC" : "123", bottom) { self.commit(self.spelling); self.symbols.toggle(); self.redraw() }
         key(chinese ? "中 / 英" : "EN / 中", bottom) { self.commit(self.spelling); self.chinese.toggle(); self.redraw() }
         key("空格", bottom) {

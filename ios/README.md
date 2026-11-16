@@ -7,3 +7,5 @@ iPhone、iPad 需要 iOS / iPadOS 16 或以上。主 App 使用 Apple Speech 的
 词表来源为 [雾凇拼音](https://github.com/iDvel/rime-ice/tree/927e1cf1d3eeb9bf4be85e3f684dba4dd485b6f6)，遵循 GPL-3.0，许可证随扩展分发。
 
 安装 Xcode 和 XcodeGen 后，在本目录运行 `xcodegen generate`，打开 MicBar.xcodeproj，选择 MicBar。模拟器构建无需开发者签名。真机和 App Store 分发需要为两个 target 配置同一开发团队的签名和可注册的 bundle ID。
+
+0.1.1 的竖屏简体中文键盘在拼写时整行显示候选，选词后按光标前文字推荐后续词句。点建议只补入后续部分，可横滑查看更多候选，底行「工具」可切回工具栏。联想词表包含雾凇基础词典派生的补全和常用口语衔接。

@@ -1,0 +1,26 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <queries><intent><action android:name="android.speech.RecognitionService"/></intent></queries>
+    <application android:name=".MicBarApp" android:icon="@drawable/mic_icon" android:label="@string/app_name" android:allowBackup="false" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <activity android:name=".SetupActivity" android:exported="true" android:windowSoftInputMode="adjustResize|stateAlwaysHidden">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+        </activity>
+        <activity android:name=".PickerActivity" android:exported="false" android:excludeFromRecents="true"
+            android:taskAffinity="org.micbar.ime.picker" android:theme="@android:style/Theme.Material.Light.Dialog.Alert"
+            android:windowSoftInputMode="stateAlwaysHidden"/>
+        <receiver android:name=".EditionReplaced" android:exported="false">
+            <intent-filter><action android:name="android.intent.action.MY_PACKAGE_REPLACED"/></intent-filter>
+        </receiver>
+        <service android:name=".EdgeSwitcher" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-enabled draggable keyboard switcher overlay"/>
+        </service>
+        <service android:name=".MicIme" android:label="@string/app_name" android:permission="android.permission.BIND_INPUT_METHOD" android:exported="true">
+            <intent-filter><action android:name="android.view.InputMethod"/></intent-filter>
+            <meta-data android:name="android.view.im" android:resource="@xml/keyboard"/>
+        </service>
+    </application>
+</manifest>

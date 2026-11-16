@@ -1,0 +1,34 @@
+plugins {
+    id 'com.android.application' version '8.7.3'
+}
+android {
+    namespace 'org.micbar.ime'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'org.micbar.ime'
+        minSdk 26
+        targetSdk 35
+        versionCode 18
+        versionName '1.17'
+        ndk { abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64' }
+    }
+    buildFeatures { buildConfig true }
+    flavorDimensions 'edition'
+    productFlavors {
+        lite {
+            dimension 'edition'
+            buildConfigField 'boolean', 'HAS_WRITER', 'false'
+        }
+        full {
+            dimension 'edition'
+            buildConfigField 'boolean', 'HAS_WRITER', 'true'
+        }
+    }
+    androidResources { noCompress += ["onnx", "gguf"] }
+    packaging { jniLibs { useLegacyPackaging true } }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+dependencies { implementation files('libs/jna-5.18.1.aar', 'libs/sherpa-onnx-1.12.14.aar', 'libs/kotlin-stdlib-1.9.23.jar') }

@@ -1,0 +1,140 @@
+[
+  {
+    "path": "app/libs/jna-5.18.1.aar",
+    "bundle": "libs",
+    "entry": "jna-5.18.1.aar",
+    "sha256": "7f053e3ec99e14dd71259c82c1c8a02738d64a13c31226b2acc170f3060951e0"
+  },
+  {
+    "path": "app/libs/kotlin-stdlib-1.9.23.jar",
+    "bundle": "libs",
+    "entry": "kotlin-stdlib-1.9.23.jar",
+    "sha256": "8910cc238807d86ef550cb1f0b10dd5ed40b35a4ec1a52525f760aede84ead37"
+  },
+  {
+    "path": "app/libs/sherpa-onnx-1.12.14.aar",
+    "bundle": "libs",
+    "entry": "sherpa-onnx-1.12.14.aar",
+    "sha256": "5a629a899888cb2760e245d9d5340858b15591aee7fa13644cf57199ff2829b9"
+  },
+  {
+    "path": "app/src/main/assets/SenseVoiceSmall/model.int8.onnx",
+    "bundle": "main",
+    "entry": "assets/SenseVoiceSmall/model.int8.onnx",
+    "sha256": "c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51"
+  },
+  {
+    "path": "app/src/main/assets/rime13/melt_eng.prism.bin",
+    "bundle": "main",
+    "entry": "assets/rime13/melt_eng.prism.bin",
+    "sha256": "30e9e2675c0f5e3941f9b0e5c72480517f193044ca6e4cb72becaa53b3c6425c"
+  },
+  {
+    "path": "app/src/main/assets/rime13/melt_eng.reverse.bin",
+    "bundle": "main",
+    "entry": "assets/rime13/melt_eng.reverse.bin",
+    "sha256": "cfb2f31456d472a11d3a8140215f06eb6e416d784bf6faab7fca5c23936db403"
+  },
+  {
+    "path": "app/src/main/assets/rime13/melt_eng.table.bin",
+    "bundle": "main",
+    "entry": "assets/rime13/melt_eng.table.bin",
+    "sha256": "62b62f5c299367d8368d424c3e22ed230a3e0f8f3e675e8683f62ac5deb280b4"
+  },
+  {
+    "path": "app/src/main/assets/rime13/rime_ice.prism.bin",
+    "bundle": "main",
+    "entry": "assets/rime13/rime_ice.prism.bin",
+    "sha256": "4ac444f17e9d7865c3532cbfff3078b973ce54c69ccd201e8c1ed0cf45d28a6e"
+  },
+  {
+    "path": "app/src/main/assets/rime13/rime_ice.reverse.bin",
+    "bundle": "main",
+    "entry": "assets/rime13/rime_ice.reverse.bin",
+    "sha256": "2178de6a2b2f1cab956a1843a8dcf322653c943a86bbc56dfd5cbe2fcc4d0729"
+  },
+  {
+    "path": "app/src/main/assets/rime13/rime_ice.table.bin",
+    "bundle": "main",
+    "entry": "assets/rime13/rime_ice.table.bin",
+    "sha256": "7e5798451361276135a37dde726dc3813fd947c41be48126aefd9f8619933260"
+  },
+  {
+    "path": "app/src/main/assets/silero_vad.onnx",
+    "bundle": "main",
+    "entry": "assets/silero_vad.onnx",
+    "sha256": "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6"
+  },
+  {
+    "path": "app/src/main/jniLibs/arm64-v8a/librime_jni.so",
+    "bundle": "main",
+    "entry": "lib/arm64-v8a/librime_jni.so",
+    "sha256": "6e2543f874f247016d791c91ab82e53979157f217be80efc472c9537afaff75f"
+  },
+  {
+    "path": "app/src/main/jniLibs/armeabi-v7a/librime_jni.so",
+    "bundle": "main",
+    "entry": "lib/armeabi-v7a/librime_jni.so",
+    "sha256": "a653848ef5e557223ec3fa6c54369e4f6f661e26e21c4594c9c000689f5b826f"
+  },
+  {
+    "path": "app/src/main/jniLibs/x86_64/librime_jni.so",
+    "bundle": "main",
+    "entry": "lib/x86_64/librime_jni.so",
+    "sha256": "98869ae0866f4f5ea452f76cfaa0889b98bf9b11ac33a62d0534d43c14cb9128"
+  },
+  {
+    "path": "app/src/full/assets/qwen25-05.gguf",
+    "bundle": "full",
+    "entry": "assets/qwen25-05.gguf",
+    "sha256": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db"
+  },
+  {
+    "path": "app/src/full/jniLibs/arm64-v8a/libggml-base.so",
+    "bundle": "full",
+    "entry": "lib/arm64-v8a/libggml-base.so",
+    "sha256": "475d675d7bfc4e6d8417b1350b95c697666d6d13053ee54f480c8e8cd6cc9fc3"
+  },
+  {
+    "path": "app/src/full/jniLibs/arm64-v8a/libggml-cpu-android_armv8.0_1.so",
+    "bundle": "full",
+    "entry": "lib/arm64-v8a/libggml-cpu-android_armv8.0_1.so",
+    "sha256": "9f6f6eeab5d42ed832c9a7793b2b44027e0f51ae3f8a8e023c62a5a96ad91986"
+  },
+  {
+    "path": "app/src/full/jniLibs/arm64-v8a/libggml-cpu-android_armv8.2_2.so",
+    "bundle": "full",
+    "entry": "lib/arm64-v8a/libggml-cpu-android_armv8.2_2.so",
+    "sha256": "9c0772c59f3ead0aa736ffca944882511e5462ee529670e363bd2ca633e0d83b"
+  },
+  {
+    "path": "app/src/full/jniLibs/arm64-v8a/libggml.so",
+    "bundle": "full",
+    "entry": "lib/arm64-v8a/libggml.so",
+    "sha256": "7c3a1f2b780dbadfdad840906b08270e350aeb3c7b084805c5faba84b9aa2bbb"
+  },
+  {
+    "path": "app/src/full/jniLibs/arm64-v8a/libllama-common.so",
+    "bundle": "full",
+    "entry": "lib/arm64-v8a/libllama-common.so",
+    "sha256": "ab752f9c62c1b15e8a8a90382cb74225adfcb60d4be123cdbe1c9e44e704c268"
+  },
+  {
+    "path": "app/src/full/jniLibs/arm64-v8a/libllama-completion-impl.so",
+    "bundle": "full",
+    "entry": "lib/arm64-v8a/libllama-completion-impl.so",
+    "sha256": "02e6eb40aa1feb1c896490536672660a447a1e638c9b507ba129bc2e25c2a5a3"
+  },
+  {
+    "path": "app/src/full/jniLibs/arm64-v8a/libllama.so",
+    "bundle": "full",
+    "entry": "lib/arm64-v8a/libllama.so",
+    "sha256": "ccf143a564646435ed60cdf054a55381ca921906572df2e3216c1d3c5edc78cd"
+  },
+  {
+    "path": "app/src/full/jniLibs/arm64-v8a/libmicbar-completion.so",
+    "bundle": "full",
+    "entry": "lib/arm64-v8a/libmicbar-completion.so",
+    "sha256": "3b4f924f5cfc4ada1924c017ff615d55195b5d7acf674a813ac1842bec7497b3"
+  }
+]

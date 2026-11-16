@@ -1,0 +1,19 @@
+Light Voice Keyboard 1.3 uses SenseVoiceSmall from FunAudioLLM / Alibaba for multilingual transcription.
+Model: https://huggingface.co/FunAudioLLM/SenseVoiceSmall
+Quantized ONNX conversion: https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17
+Model weights are distributed under the FunASR Model Open Source License Agreement (see FunASR-MODEL_LICENSE.txt).
+sherpa-onnx 1.12.14, k2-fsa contributors, Apache License 2.0: https://github.com/k2-fsa/sherpa-onnx
+Silero VAD, Silero Team, MIT License: https://github.com/snakers4/silero-vad
+ONNX Runtime, Microsoft Corporation, MIT License.
+Kotlin standard library 1.9.23, JetBrains, Apache License 2.0.
+
+MicBar 1.3 keyboard components
+The Rime native runtime is the unmodified librime_jni.so from the Trime Android v3.3.12 release, used via the librime C API. Trime source with exact submodule references and build instructions: https://github.com/osfans/trime/tree/v3.3.12 . Trime is GPL-3.0. librime is BSD-3-Clause. See Trime.txt and librime.txt.
+Chinese full-pinyin and English dictionary binaries are from 雾凇拼音 by iDvel and contributors, full_compiled.zip built 2026-11-11, matching dictionary sources at https://github.com/iDvel/rime-ice/tree/927e1cf1d3eeb9bf4be85e3f684dba4dd485b6f6 . The local schema is adapted for MicBar. See GPL-3.0.txt.
+Java Native Access 5.18.1, used under Apache-2.0: https://github.com/java-native-access/jna/tree/5.18.1 . See Apache-2.0.txt.
+
+MicBar 1.12 writing tools: llama.cpp b12441 Android ARM64 completion runtime (MIT).
+https://github.com/ggml-org/llama.cpp/releases/tag/b12441
+Qwen2.5-0.5B-Instruct, official Q4_K_M GGUF (Apache-2.0).
+https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/tree/9217f5db79a29953eb74d5343926648285ec7e67
+The typo suggestion index is derived from the same Rime Ice cn_dicts/base.dict.yaml release identified above.

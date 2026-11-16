@@ -20,6 +20,18 @@ jobs:
           test -f MicBar.app/PlugIns/MicBarKeyboard.appex/characters.tsv
           test -f MicBar.app/PlugIns/MicBarKeyboard.appex/pinyin-common.tsv
           ditto -c -k --keepParent MicBar.app MicBar-iOS-Simulator.zip
+      - name: Package unsigned iPhone and iPad device build
+        working-directory: ios
+        run: |
+          xcodebuild -scheme MicBar -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/MicBar.app Payload/
+          test -x Payload/MicBar.app/PlugIns/MicBarKeyboard.appex/MicBarKeyboard
+          /usr/bin/zip -qry MicBar-iOS-0.1.0-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MicBar-iOS-unsigned-device
+          path: ios/MicBar-iOS-0.1.0-unsigned.ipa
       - name: Launch on iPhone
         working-directory: ios
         run: |

@@ -17,3 +17,5 @@ https://github.com/ggml-org/llama.cpp/releases/tag/b12441
 Qwen2.5-0.5B-Instruct, official Q4_K_M GGUF (Apache-2.0).
 https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/tree/9217f5db79a29953eb74d5343926648285ec7e67
 The typo suggestion index is derived from the same Rime Ice cn_dicts/base.dict.yaml release identified above.
+
+The portrait continuation index is derived from the Rime Ice base dictionary at the revision cited above, with additional MicBar conversational phrases. Generation script: tools/make-continuations.py.

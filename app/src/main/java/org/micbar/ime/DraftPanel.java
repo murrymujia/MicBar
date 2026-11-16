@@ -68,7 +68,27 @@ final class DraftPanel extends LinearLayout {
     private static final String[] EN_SHORTCUTS = {",", "?", "!", "'", "\"", ":", ";", "-", "/", "@"};
     private static final String[] ZH_SHORTCUTS = {"，", "？", "！", "、", "……", "：", "；", "“", "”", "——"};
     private PopupWindow punctuationPopup;
-    private boolean preferencesOpen, caps, moreSymbols;
+    private boolean preferencesOpen, caps, moreSymbols, showTypingTools;
+    private String editorSuffix="";
+    private boolean portrait() {
+        return getResources().getConfiguration().orientation==android.content.res.Configuration.ORIENTATION_PORTRAIT;
+    }
+    private boolean portraitChinese(){
+        return portrait() && expanded() && !preferencesOpen && !english && !symbols && !voiceActive && !fromVoice;
+    }
+    boolean needsFollowingContext(){return portraitChinese() && proseField && previewAllowed && !drafting;}
+    void editorSuffix(String context){
+        String suffix=context.substring(Math.max(0,context.length()-12));
+        if(!suffix.equals(editorSuffix)){editorSuffix=suffix;renderCandidates();}
+    }
+    private java.util.List<String> nextWords(){
+        if(!ready || !portraitChinese() || !previewAllowed || !proseField || sendAction)
+            return java.util.Collections.emptyList();
+        if(!drafting)return suggestions.following(editorSuffix);
+        int end=draft.getSelectionEnd();
+        if(end<=0 || end!=draft.getSelectionStart())return java.util.Collections.emptyList();
+        return suggestions.following(draft.getText().subSequence(Math.max(0,end-12),end).toString());
+    }
     private long lastShiftTap;
     private View preferences;
     private final HorizontalScrollView candidateScroll;
@@ -161,6 +181,7 @@ final class DraftPanel extends LinearLayout {
             @Override protected void onSelectionChanged(int start,int end) {
                 super.onSelectionChanged(start,end);draftVersion++;
                 if (submit!=null) updateMic();
+                if(keys!=null && drafting && portraitChinese()) renderCandidates();
             }
         };
         draft.setSingleLine(true); draft.setTextSize(17); draft.setTextColor(ink);
@@ -224,7 +245,7 @@ final class DraftPanel extends LinearLayout {
         keyboard = new LinearLayout(context); keyboard.setOrientation(VERTICAL); addView(keyboard,new LayoutParams(-1,-2));
         candidateScroll = new HorizontalScrollView(context);
         candidateScroll.setHorizontalScrollBarEnabled(false);
-        inlineCandidates=options.phonePortrait() || options.shortLandscape() || getResources().getConfiguration().screenWidthDp>=640;
+        inlineCandidates=portrait() || options.phonePortrait() || options.shortLandscape() || getResources().getConfiguration().screenWidthDp>=640;
         if(inlineCandidates) bar.addView(candidateScroll,bar.indexOfChild(draft)+1,new LayoutParams(0,dp(40),2.3f));
         else keyboard.addView(candidateScroll);
         candidateScroll.setVisibility(GONE);
@@ -406,7 +427,7 @@ final class DraftPanel extends LinearLayout {
         if (sendAction == value) return;
         sendAction = value;
         drawReturn();
-        updateTypingReturn();
+        updateTypingReturn();renderCandidates();
     }
     private void updateTypingReturn() {
         if (typingReturn!=null) typingReturn.glyph(sendAction?ToolButton.Icon.SEND:ToolButton.Icon.ENTER, sendAction?"发送":"确认输入",options.onPrimary);
@@ -506,7 +527,7 @@ final class DraftPanel extends LinearLayout {
     boolean expanded() { return keyboard.getVisibility()==VISIBLE; }
     boolean hasText() { return draft.length()>0 || !composition.raw.isEmpty(); }
     void showKeyboard(boolean show) {
-        dismissPunctuation();
+        dismissPunctuation();showTypingTools=false;
         if(preferences!=null) {keyboard.removeView(preferences);preferences=null;}
         preferencesOpen=false;keys.setVisibility(VISIBLE);
         keyboard.setVisibility(show ? VISIBLE : GONE);
@@ -556,6 +577,7 @@ final class DraftPanel extends LinearLayout {
         RimeEngine.worker.execute(engine::close);
     }
     void reset() {
+        editorSuffix="";showTypingTools=false;
         writing.close();aiBefore="";aiAfter="";transcript="";identifier="";fromVoice=false;dictatedTail=false;editorCaret=null;showEditorLine("");
         if (ready) engine.clear();
         composition = new RimeEngine.Result();
@@ -596,8 +618,8 @@ final class DraftPanel extends LinearLayout {
     }
     void beginVoice() {
         finishComposition();
-        setDraftMode(true);
         writing.close();fromVoice=true;voiceActive=true; edited=false;
+        setDraftMode(true);
         previousHypothesis="";
         Editable text=draft.getText();
         int pos=draft.getSelectionEnd()<0 ? text.length() : draft.getSelectionEnd();
@@ -720,6 +742,11 @@ final class DraftPanel extends LinearLayout {
         ToolButton erase=iconKey(third,ToolButton.Icon.DELETE,"退格",1.5f,options.function,this::backspace);
         bindRepeat(erase);
         LinearLayout bottom=row(keys);
+        if(portrait() && !english && !symbols) {
+            textKey(bottom,"⋯",.95f,20,options.function,14,()->{
+                showTypingTools=!showTypingTools;renderCandidates();
+            }).setContentDescription("切换候选栏和工具栏");
+        }
         textKey(bottom,symbols?"ABC":"?123",1.5f,16,options.function,26,()->{
             finishComposition();symbols=!symbols;moreSymbols=false;shift=false;caps=false;renderKeys();renderCandidates();
         });
@@ -826,6 +853,7 @@ final class DraftPanel extends LinearLayout {
         });
     }
     private void type(String s) {
+        showTypingTools=false;
         host.editingStarted();
         char ch=s.charAt(0);
         if(!english && !symbols && (Character.isUpperCase(ch) || !identifier.isEmpty() && asciiWord(ch))) {
@@ -847,8 +875,19 @@ final class DraftPanel extends LinearLayout {
     private void renderCandidates() {
         candidates.removeAllViews();
         boolean composing=!composition.raw.isEmpty();
+        java.util.List<String> next=composing?java.util.Collections.emptyList():nextWords();
+        boolean full=portraitChinese() && !showTypingTools && (composing || !next.isEmpty());
+        // Swap the existing toolbar row for one full-width candidate row. Never add height.
+        if(full && candidateScroll.getParent()!=keyboard){
+            bar.removeView(candidateScroll);keyboard.addView(candidateScroll,0,new LayoutParams(-1,dp(options.phonePortrait()?44:50)));
+        }else if(!full && inlineCandidates && candidateScroll.getParent()==keyboard){
+            keyboard.removeView(candidateScroll);bar.addView(candidateScroll,bar.indexOfChild(draft)+1,new LayoutParams(0,dp(40),2.3f));
+        }
+        bar.setVisibility(full?GONE:VISIBLE);
+        candidateScroll.setFillViewport(full);
+        candidates.setGravity(Gravity.CENTER_VERTICAL);
         boolean loading=!ready && !english && !symbols;
-        candidateScroll.setVisibility(expanded() && !preferencesOpen && (composing || loading)?VISIBLE:GONE);
+        candidateScroll.setVisibility(expanded() && !preferencesOpen && (full || ((composing || loading) && !(portraitChinese() && showTypingTools)))?VISIBLE:GONE);
         // Let the suggestion strip take the tool row while spelling; editing keys remain on the keyboard.
         if (floating()) {
             delete.setVisibility(GONE);enter.setVisibility(GONE);
@@ -861,7 +900,11 @@ final class DraftPanel extends LinearLayout {
         }
         if(!expanded()) { delete.setVisibility(VISIBLE);enter.setVisibility(VISIBLE); }
         toolbarSpace.setVisibility(expanded() && !drafting && (!floating() || !composing) && (options.shortLandscape() || !inlineCandidates || candidateScroll.getVisibility()!=VISIBLE)?VISIBLE:GONE);
+        candidateScroll.scrollTo(0,0);
         if(!composing) {
+            if(full){
+                for(String word:next)candidate(word,()->{host.editingStarted();replaceSelection(word);},false);
+            }
             if(loading) candidate(error.isEmpty()?"正在打开离线词库…":error,this::openEngine,false);
             return;
         }
@@ -870,7 +913,7 @@ final class DraftPanel extends LinearLayout {
         java.util.List<String> alternatives=ready?suggestions.forInput(composition.raw):java.util.Collections.emptyList();
         for(String word:extra) candidate(word,()->chooseWord(word),true);
         for(String word:alternatives) if(!extra.contains(word) && word.equalsIgnoreCase(composition.raw)) candidate(word,()->chooseWord(word),true);
-        candidate(composition.raw,()->chooseWord(composition.raw),false);
+        if(!full) candidate(composition.raw,()->chooseWord(composition.raw),false);
         for(int i=0;i<composition.candidates.size();i++) {
             final int index=i;
             String value=composition.candidates.get(i);
@@ -880,6 +923,7 @@ final class DraftPanel extends LinearLayout {
             if(i==0) typoCandidates(alternatives,extra);
         }
         if(composition.candidates.isEmpty()) typoCandidates(alternatives,extra);
+        if(full && !extra.contains(composition.raw) && !composition.candidates.contains(composition.raw)) candidate(composition.raw,()->chooseWord(composition.raw),false);
         if(!english && composition.raw.matches("[A-Za-z][A-Za-z0-9_]*")) {
             candidate(composition.raw+"_",()->{
                 identifier=composition.raw+"_";if(ready) engine.clear();
@@ -896,9 +940,10 @@ final class DraftPanel extends LinearLayout {
     }
     private void candidate(String label,Runnable action,boolean first) {
         TextView v=labelKey(label,17);v.setPadding(dp(14),0,dp(14),0);
-        v.setTextColor(first?blue:ink);v.setMinWidth(dp(42));
-        v.setBackground(options.face(first?accent:canvas,18));v.setOnClickListener(key->{feedback(key);action.run();});
-        candidates.addView(v,new LayoutParams(-2,dp(38)));
+        boolean full=bar.getVisibility()==GONE;
+        v.setTextColor(first?blue:ink);v.setMinWidth(dp(full?64:42));
+        v.setBackground(full?options.face(canvas,0):options.face(first?accent:canvas,18));v.setOnClickListener(key->{feedback(key);action.run();});
+        candidates.addView(v,new LayoutParams(-2,dp(full?42:38),full?1:0));
     }
     private void apply(RimeEngine.Result r) {
         composition=r; updateSubmit();

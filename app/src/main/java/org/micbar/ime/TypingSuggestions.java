@@ -6,6 +6,7 @@ import java.util.*;
 
 final class TypingSuggestions {
     private final Map<String,String> common=new HashMap<>();
+    private final Map<String,List<String>> following=new HashMap<>();
     private static final String[] TERMS={"Python","Codex","GitHub","Antigravity","JavaScript","TypeScript","OpenAI","ChatGPT","NumPy","PyTorch","WiFi","Linux","Docker"};
     void load(Context c) throws IOException {
         try(BufferedReader r=new BufferedReader(new InputStreamReader(c.getAssets().open("pinyin-common.tsv"),"UTF-8"))) {
@@ -13,6 +14,20 @@ final class TypingSuggestions {
                 int tab=line.indexOf('\t');if(tab>0) common.put(line.substring(0,tab),line.substring(tab+1));
             }
         }
+        try(BufferedReader r=new BufferedReader(new InputStreamReader(c.getAssets().open("continuations.tsv"),"UTF-8"))) {
+            String line;while((line=r.readLine())!=null) {
+                String[] fields=line.split("\t");following.put(fields[0],Arrays.asList(fields).subList(1,fields.length));
+            }
+        }
+    }
+    List<String> following(String context) {
+        for(int start=Math.max(0,context.length()-12);start<context.length();start++){
+            List<String> options=following.get(context.substring(start));
+            if(options!=null)return options;
+        }
+        if(!context.isEmpty() && Character.UnicodeScript.of(context.codePointBefore(context.length()))==Character.UnicodeScript.HAN)
+            return Arrays.asList("的","了","和");
+        return Collections.emptyList();
     }
     List<String> forInput(String raw) {
         LinkedHashSet<String> out=new LinkedHashSet<>();

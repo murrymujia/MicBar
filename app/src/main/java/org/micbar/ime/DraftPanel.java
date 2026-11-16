@@ -11,7 +11,7 @@ import java.util.Locale;
 
 /** Direct typing and a separately editable dictation draft share one keyboard. */
 final class DraftPanel extends LinearLayout {
-    interface Host { boolean insert(String text); boolean insertSpeech(String text,boolean mark); boolean undo(); String selection(); long caretVersion(); boolean rewriteSelection(String old,String edit); boolean undoRewrite(); void collapse(); void picker(); void toggleVoice(); void acceptVoice(); void enterAfterVoice(); void editorKey(int code); void shortcut(VoiceShortcut action); void retakeVoice(); void positionToolbar(float heightFraction); }
+    interface Host { boolean insert(String text); boolean insertSpeech(String text,boolean mark); boolean undo(); String selection(); long caretVersion(); boolean rewriteSelection(String old,String edit); boolean undoRewrite(); void collapse(); void picker(); void toggleVoice(); void acceptVoice(); void tapToolbarReturn(); void enterAfterVoice(); void editorKey(int code); void shortcut(VoiceShortcut action); void retakeVoice(); void positionToolbar(float heightFraction); }
     private final Host host;
     private final PersonalWords personal;
     private final DraftLearning learning=new DraftLearning();
@@ -182,7 +182,7 @@ final class DraftPanel extends LinearLayout {
             else notice("当前没有可以安全撤销的听写");
             return true;
         });
-        enter=tool(bar,this::fillOnly);
+        enter=tool(bar,host::tapToolbarReturn);
         enter.setOnLongClickListener(v->{
             pressEnter();
             return true;
@@ -387,6 +387,17 @@ final class DraftPanel extends LinearLayout {
         ink=options.ink; muted=options.secondary; blue=dark?0xffb9ccff:0xff265a9b;
         accent=dark?0xff354763:0xffd4e3ff;
     }
+    private boolean sendAction;
+    void showSendAction(boolean value) {
+        if (sendAction == value) return;
+        sendAction = value;
+        drawReturn();
+    }
+    private void drawReturn() {
+        enter.display(sendAction ? ToolButton.Icon.SEND : ToolButton.Icon.ENTER,
+                sendAction ? "发送" : "填入草稿，再点发送；长按回车",
+                sendAction ? blue : ink, sendAction ? accent : 0);
+    }
     private void applyColors() {
         readColors();
         bar.setBackground(shape(expanded()?canvas:surface,28));
@@ -396,7 +407,7 @@ final class DraftPanel extends LinearLayout {
         draft.setVisibility(drafting && (expanded() || showPeek())?VISIBLE:GONE);
         submit.setVisibility(drafting && expanded()?VISIBLE:GONE);
         hide.setVisibility(expanded() && !voiceActive && !options.phonePortrait()?VISIBLE:GONE);
-        enter.display(ToolButton.Icon.ENTER,"轻点填入，长按回车",ink,0);
+        drawReturn();
         delete.display(ToolButton.Icon.DELETE,drafting?"删除草稿文字":"删除",ink,0);
         settings.display(preferencesOpen?ToolButton.Icon.BACK:ToolButton.Icon.SETTINGS,
                 preferencesOpen?"返回键盘":"键盘设置",ink,0);

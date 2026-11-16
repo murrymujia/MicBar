@@ -8,7 +8,7 @@ import android.widget.ImageButton;
 
 /** A 48dp touch target with a smaller circular surface and a 24dp Material-style glyph. */
 final class ToolButton extends ImageButton {
-    enum Icon { MIC, LISTEN, BUSY, KEYBOARD, FOLD, CHECK, DOWN, DELETE, SETTINGS, SHIFT, LOCK, GLOBE, ENTER, BACK }
+    enum Icon { MIC, LISTEN, BUSY, KEYBOARD, FOLD, CHECK, DOWN, DELETE, SETTINGS, SHIFT, LOCK, GLOBE, ENTER, SEND, BACK }
     private final Paint ink = new Paint(Paint.ANTI_ALIAS_FLAG);
     private Icon icon;
     private int color;
@@ -70,6 +70,11 @@ final class ToolButton extends ImageButton {
                 c.drawCircle(12,12,8,ink);c.drawOval(8,4,16,20,ink);line(c,4,12,20,12);break;
             case ENTER:
                 line(c,20,7,20,13);line(c,20,13,4,13);line(c,4,13,9,8);line(c,4,13,9,18);break;
+            case SEND:
+                Path send = new Path();
+                send.moveTo(3.5f,4); send.lineTo(21,12); send.lineTo(3.5f,20);
+                send.lineTo(6,12); send.close();
+                c.drawPath(send,ink); line(c,6,12,13,12); break;
             case BACK:
                 line(c,4,12,20,12);line(c,4,12,11,5);line(c,4,12,11,19);break;
             case SETTINGS:

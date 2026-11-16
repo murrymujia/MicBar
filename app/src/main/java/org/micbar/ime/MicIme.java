@@ -14,6 +14,8 @@ import java.util.ArrayList;
 public final class MicIme extends InputMethodService {
     private enum State { IDLE, PREPARING, LISTENING, FINISHING }
     private State state = State.IDLE;
+    private enum ToolbarReturn { IDLE, FILL_PENDING, SEND_PENDING, READY }
+    private ToolbarReturn toolbarReturn = ToolbarReturn.IDLE;
     private long generation;
     private InputConnection target;
     private FrameLayout strip;
@@ -43,6 +45,7 @@ public final class MicIme extends InputMethodService {
         } else {
             if(!ic.setSelection(undoEnd-undoText.length(),undoEnd) || !ic.commitText(undoOriginal,1)) return false;
         }
+        setToolbarReturn(ToolbarReturn.IDLE);
         undoText="";recentInput="";schedulePreview();return true;
     }
     private final HandlerThread readerThread=new HandlerThread("EditorPreview");
@@ -117,6 +120,7 @@ public final class MicIme extends InputMethodService {
                     CharSequence prev=current.getTextBeforeCursor(1,0);
                     if (prev!=null && prev.length()==1 && Character.isLetterOrDigit(prev.charAt(0))) text=" "+text;
                 }
+                setToolbarReturn(ToolbarReturn.IDLE);
                 undoText="";aiOld="";aiNew="";
                 String replaced=speechInsert && panel.permitsLearning()?selection():"";
                 boolean ok=current.commitText(text,1);
@@ -133,6 +137,7 @@ public final class MicIme extends InputMethodService {
             }
             public void collapse() { openPanel(false); }
             public void toggleVoice() { tap(); }
+            public void tapToolbarReturn() { handleToolbarReturn(); }
             public void acceptVoice() { finishForEditor(false); }
             public void shortcut(VoiceShortcut action) {runShortcut(action);}
             public void editorKey(int code) { pressEditorKey(code); }
@@ -239,6 +244,7 @@ public final class MicIme extends InputMethodService {
     }
     private void runShortcut(VoiceShortcut action) {
         if(draftTarget==null || draftTarget!=getCurrentInputConnection() || !isInputViewShown()) return;
+        setToolbarReturn(ToolbarReturn.IDLE);
         if(action.code!=KeyEvent.KEYCODE_TAB) {pressEditorKey(action.code);return;}
         // Autocomplete must see the final transcript before it receives Tab.
         if(state!=State.IDLE) {
@@ -266,7 +272,38 @@ public final class MicIme extends InputMethodService {
         ic.sendKeyEvent(new KeyEvent(down,SystemClock.uptimeMillis(),action,key,0,meta,
                 KeyCharacterMap.VIRTUAL_KEYBOARD,0,KeyEvent.FLAG_SOFT_KEYBOARD,InputDevice.SOURCE_KEYBOARD));
     }
+    private void setToolbarReturn(ToolbarReturn next) {
+        toolbarReturn = next;
+        if (panel != null) panel.showSendAction(next == ToolbarReturn.FILL_PENDING || next == ToolbarReturn.READY);
+    }
+
+    private void handleToolbarReturn() {
+        if (draftTarget == null || draftTarget != getCurrentInputConnection() || !isInputViewShown()) return;
+        if (state != State.IDLE) {
+            if (toolbarReturn == ToolbarReturn.SEND_PENDING) return;
+            boolean secondTap = toolbarReturn == ToolbarReturn.FILL_PENDING;
+            finishForEditor(false);
+            setToolbarReturn(secondTap ? ToolbarReturn.SEND_PENDING : ToolbarReturn.FILL_PENDING);
+        } else if (panel.hasText()) {
+            if (panel.insertDraft()) setToolbarReturn(ToolbarReturn.READY);
+        } else if (toolbarReturn == ToolbarReturn.READY) {
+            sendFromToolbar();
+        }
+    }
+
+    private void sendFromToolbar() {
+        setToolbarReturn(ToolbarReturn.IDLE);
+        InputConnection ic = getCurrentInputConnection();
+        if (ic == null || ic != draftTarget || !isInputViewShown()) return;
+        EditorInfo editor = getCurrentInputEditorInfo();
+        if (editor != null && (editor.imeOptions & EditorInfo.IME_MASK_ACTION) == EditorInfo.IME_ACTION_SEND
+                && ic.performEditorAction(EditorInfo.IME_ACTION_SEND)) return;
+        // Remote editors forward the actual key pair to the focused desktop app.
+        sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER);
+    }
+
     private void pressEditorKey(int code) {
+        setToolbarReturn(ToolbarReturn.IDLE);
         InputConnection current=getCurrentInputConnection();
         if(current==null || current!=draftTarget || !isInputViewShown()) return;
         if(rememberEditor()) {
@@ -320,6 +357,7 @@ public final class MicIme extends InputMethodService {
         if (panel!=null && state==State.FINISHING) panel.voiceState("识别中",false);
     }
     private void cancel() {
+        setToolbarReturn(ToolbarReturn.IDLE);
         pendingTab=null;acceptAfterStop=false;retakeAfterStop=false;enterAfterStop=false;generation++;
         main.removeCallbacks(timeout);
         if (run != null) { run.cancelled = true; run = null; }
@@ -343,6 +381,7 @@ public final class MicIme extends InputMethodService {
             toast("请打开轻声键盘 App，允许使用麦克风"); return;
         }
         if (getCurrentInputConnection() == null) { toast("请先点一下要输入文字的位置"); return; }
+        setToolbarReturn(ToolbarReturn.IDLE);
         target = getCurrentInputConnection();
         autoFill = prefs().getBoolean("directInsert",false) && !panel.hasText();
         heard=false;
@@ -375,12 +414,14 @@ public final class MicIme extends InputMethodService {
     }
     private void finishForEditor(boolean enter) {
         if(state==State.IDLE) return;
+        setToolbarReturn(ToolbarReturn.IDLE);
         pendingTab=null;retakeAfterStop=false;
         acceptAfterStop=true;enterAfterStop=enter;
         if(state==State.LISTENING) tap();
     }
     private void finishVoice(long id) {
         if (!activeTarget(id)) return;
+        ToolbarReturn requested = toolbarReturn;
         VoiceShortcut tab=pendingTab;
         boolean retake=retakeAfterStop, enter=enterAfterStop;
         if(heard) panel.rememberSpokenEnding();
@@ -390,7 +431,13 @@ public final class MicIme extends InputMethodService {
         if (retake && panel.restoreRetake()) { tap(); return; }
         if (submit && panel.hasText()) {
             automaticCommit=autoFill && !panel.manualVoiceEdit();
-            try { if(panel.insertDraft() && enter) pressEditorKey(KeyEvent.KEYCODE_ENTER); } finally { automaticCommit=false; }
+            try {
+                if (panel.insertDraft()) {
+                    if (requested == ToolbarReturn.SEND_PENDING) sendFromToolbar();
+                    else if (requested == ToolbarReturn.FILL_PENDING) setToolbarReturn(ToolbarReturn.READY);
+                    else if (enter) pressEditorKey(KeyEvent.KEYCODE_ENTER);
+                }
+            } finally { automaticCommit=false; }
         }
         else if (!heard) {
             toast("没有听清，可以重新听写");

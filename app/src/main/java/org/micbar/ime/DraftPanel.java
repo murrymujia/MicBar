@@ -11,7 +11,7 @@ import java.util.Locale;
 
 /** Direct typing and a separately editable dictation draft share one keyboard. */
 final class DraftPanel extends LinearLayout {
-    interface Host { boolean insert(String text); boolean insertSpeech(String text,boolean mark); boolean undo(); String selection(); long caretVersion(); boolean rewriteSelection(String old,String edit); boolean undoRewrite(); void collapse(); void picker(); void toggleVoice(); void acceptVoice(); void tapToolbarReturn(); void enterAfterVoice(); void editorKey(int code); void shortcut(VoiceShortcut action); void retakeVoice(); void positionToolbar(float heightFraction); }
+    interface Host { boolean insert(String text); boolean insertSpeech(String text,boolean mark); boolean undo(); String selection(); long caretVersion(); boolean rewriteSelection(String old,String edit); boolean undoRewrite(); void hideInput(); void picker(); void toggleVoice(); void acceptVoice(); void tapToolbarReturn(); void enterAfterVoice(); void editorKey(int code); void shortcut(VoiceShortcut action); void retakeVoice(); void positionToolbar(float heightFraction); }
     private final Host host;
     private final PersonalWords personal;
     private final DraftLearning learning=new DraftLearning();
@@ -52,6 +52,8 @@ final class DraftPanel extends LinearLayout {
     private android.graphics.RectF editorCaret;
     private boolean drafting, secureField;
     private final LinearLayout bar;
+    private final FrameLayout dragHandle;
+    private final View grip;
     private boolean peek,dragging;
     private float xFraction=.96f,heightFraction=0f, dragX,dragY,originalX,originalLift;
     private android.content.SharedPreferences positions() { return getContext().getSharedPreferences("micbar",Context.MODE_PRIVATE); }
@@ -197,8 +199,11 @@ final class DraftPanel extends LinearLayout {
         });
         submit=tool(bar,this::fillOnly);
         submit.display(ToolButton.Icon.CHECK,"填入草稿",blue,accent);
-        hide=tool(bar,host::collapse);
-        hide.display(ToolButton.Icon.DOWN,"收起工具栏",muted,0);
+        hide=tool(bar,()->{
+            if (!drafting) finishComposition();
+            host.hideInput();
+        });
+        hide.display(ToolButton.Icon.DOWN,"隐藏输入法",muted,0);
         draft.addTextChangedListener(new android.text.TextWatcher() {
             public void beforeTextChanged(CharSequence s,int start,int count,int after) {
                 learning.before(s,start,count,after,fromVoice && previewAllowed && personal.learns()
@@ -225,6 +230,14 @@ final class DraftPanel extends LinearLayout {
         candidateScroll.setVisibility(GONE);
         candidates = new LinearLayout(context); candidateScroll.addView(candidates);
         keys = new LinearLayout(context); keys.setOrientation(VERTICAL); keyboard.addView(keys);
+        dragHandle = new FrameLayout(context);
+        dragHandle.setContentDescription("拖动悬浮键盘");
+        dragHandle.setOnTouchListener((v,e) -> getParent() instanceof KeyboardSurface
+                && ((KeyboardSurface)getParent()).drag(v,e));
+        grip = new View(context);
+        grip.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        dragHandle.addView(grip,new FrameLayout.LayoutParams(dp(42),dp(4),Gravity.CENTER));
+        addView(dragHandle,new LayoutParams(-1,dp(24)));
         showKeyboard(false); endVoice();
     }
     private boolean dragMic(View v,MotionEvent e) {
@@ -406,15 +419,24 @@ final class DraftPanel extends LinearLayout {
         shortcutRow.setVisibility(expanded()?GONE:VISIBLE);
         draft.setVisibility(drafting && (expanded() || showPeek())?VISIBLE:GONE);
         submit.setVisibility(drafting && expanded()?VISIBLE:GONE);
-        hide.setVisibility(expanded() && !voiceActive && !options.phonePortrait()?VISIBLE:GONE);
+        hide.setVisibility(expanded()?VISIBLE:GONE);
         drawReturn();
         delete.display(ToolButton.Icon.DELETE,drafting?"删除草稿文字":"删除",ink,0);
         settings.display(preferencesOpen?ToolButton.Icon.BACK:ToolButton.Icon.SETTINGS,
                 preferencesOpen?"返回键盘":"键盘设置",ink,0);
         edit.display(expanded()?ToolButton.Icon.FOLD:ToolButton.Icon.KEYBOARD,expanded()?"折叠键盘":"展开键盘",muted,0);
         submit.display(ToolButton.Icon.CHECK,"填入草稿",blue,accent);
-        hide.display(ToolButton.Icon.DOWN,"收起工具栏",muted,0);
-        setBackgroundColor(expanded()?canvas:0);updateMic();
+        hide.display(ToolButton.Icon.DOWN,"隐藏输入法",muted,0);
+        dragHandle.setVisibility(floating()?VISIBLE:GONE);
+        grip.setBackground(shape(muted,4));
+        if (floating()) {
+            setBackground(shape(canvas,16));
+            setClipToOutline(true);
+        } else {
+            setClipToOutline(false);
+            setBackgroundColor(expanded()?canvas:0);
+        }
+        updateMic();
     }
     private void feedback(View v) {
         if(options.prefs.getBoolean("keySound",false))
@@ -459,7 +481,10 @@ final class DraftPanel extends LinearLayout {
         ToolButton key=new ToolButton(getContext()); key.display(glyph,name,ink,0);
         attachKey(row,key,weight,fill,glyph==ToolButton.Icon.ENTER?26:14,action);return key;
     }
-    int backdrop() { return expanded()?options.base:0; }
+    boolean floating() {
+        return expanded() && getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+    }
+    int backdrop() { return expanded() && !floating()?options.base:0; }
     boolean expanded() { return keyboard.getVisibility()==VISIBLE; }
     boolean hasText() { return draft.length()>0 || !composition.raw.isEmpty(); }
     void showKeyboard(boolean show) {
@@ -561,7 +586,7 @@ final class DraftPanel extends LinearLayout {
         replaceOriginal=mark(replaceRange);
         text.setSpan(voiceAnchor,pos,pos,android.text.Spanned.SPAN_POINT_POINT);
         voiceState("准备中",true);
-        hide.setVisibility(GONE);
+        hide.setVisibility(expanded()?VISIBLE:GONE);
         draft.setHint("准备麦克风…");
     }
     void voiceState(String label,boolean enabled) {
@@ -578,7 +603,7 @@ final class DraftPanel extends LinearLayout {
         draft.getText().removeSpan(replaceRange);
         draft.getText().removeSpan(provisionalStart);
         previousHypothesis="";
-        voiceState("填入",true); hide.setVisibility(expanded() && !options.phonePortrait()?VISIBLE:GONE); dictate.setVisibility(VISIBLE); draft.setHint("草稿");
+        voiceState("填入",true); hide.setVisibility(expanded()?VISIBLE:GONE); dictate.setVisibility(VISIBLE); draft.setHint("草稿");
     }
     void rememberSpokenEnding() {
         // A spoken correction in the middle of a draft must not punctuate its untouched tail.
@@ -789,7 +814,7 @@ final class DraftPanel extends LinearLayout {
         boolean loading=!ready && !english && !symbols;
         candidateScroll.setVisibility(expanded() && !preferencesOpen && (composing || loading)?VISIBLE:GONE);
         // Let the suggestion strip take the tool row while spelling; editing keys remain on the keyboard.
-        if(options.phonePortrait()) {
+        if(options.phonePortrait() || floating()) {
             boolean showActions=candidateScroll.getVisibility()!=VISIBLE;
             delete.setVisibility(showActions?VISIBLE:GONE);
             enter.setVisibility(showActions?VISIBLE:GONE);

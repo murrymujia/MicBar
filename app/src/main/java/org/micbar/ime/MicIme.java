@@ -18,7 +18,7 @@ public final class MicIme extends InputMethodService {
     private ToolbarReturn toolbarReturn = ToolbarReturn.IDLE;
     private long generation;
     private InputConnection target;
-    private FrameLayout strip;
+    private KeyboardSurface strip;
     private DraftPanel panel;
     private InputConnection draftTarget;
     private boolean autoFill, heard, automaticCommit, acceptAfterStop, retakeAfterStop, enterAfterStop;
@@ -64,7 +64,7 @@ public final class MicIme extends InputMethodService {
     @Override public View onCreateInputView() {
         if (panel != null) panel.dispose();
         draftTarget = null;
-        strip = new FrameLayout(this);
+        strip = new KeyboardSurface(this);
         strip.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->updateCoverage());
         getWindow().getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0));
 
@@ -75,8 +75,8 @@ public final class MicIme extends InputMethodService {
                     .getInsetsIgnoringVisibility(WindowInsets.Type.navigationBars()).bottom;
             strip.setPadding(0,0,0,navHeight);
             strip.setOnApplyWindowInsetsListener((v, insets) -> {
-                int bottom = Math.max(navHeight, insets.getInsets(WindowInsets.Type.navigationBars()).bottom);
-                v.setPadding(0,0,0,bottom);
+                android.graphics.Insets edges = insets.getInsets(WindowInsets.Type.navigationBars() | WindowInsets.Type.displayCutout());
+                v.setPadding(edges.left, 0, edges.right, Math.max(navHeight, edges.bottom));
                 return insets;
             });
         }
@@ -135,7 +135,7 @@ public final class MicIme extends InputMethodService {
                 if (!ok) toast("当前输入框未接受文字");
                 return ok;
             }
-            public void collapse() { openPanel(false); }
+            public void hideInput() { requestHideSelf(0); }
             public void toggleVoice() { tap(); }
             public void tapToolbarReturn() { handleToolbarReturn(); }
             public void acceptVoice() { finishForEditor(false); }
@@ -172,7 +172,11 @@ public final class MicIme extends InputMethodService {
         View active = panel.touchSurface();
         active.getLocationInWindow(pos);
         // Compact controls float over the editor. Only system navigation needs space below it.
-        int top=panel.expanded()?bar[1]:bar[1]+strip.getHeight()-strip.getPaddingBottom();
+        int top = panel.expanded() ? bar[1] : bar[1] + strip.getHeight() - strip.getPaddingBottom();
+        if (panel.floating()) {
+            // The IME window can still be negotiating its new height during the first insets pass.
+            top = Math.max(getWindow().getWindow().getDecorView().getHeight(), getResources().getDisplayMetrics().heightPixels);
+        }
         insets.contentTopInsets=top;
         insets.visibleTopInsets=top;
         insets.touchableInsets = Insets.TOUCHABLE_INSETS_REGION;
@@ -240,6 +244,10 @@ public final class MicIme extends InputMethodService {
         if(strip==null || panel==null || draftTarget==null) return;
         int[] loc=new int[2];strip.getLocationOnScreen(loc);
         boolean covered=caretBounds==null || markerInvisible || caretBounds.bottom>loc[1];
+        if (panel.floating() && caretBounds!=null && !markerInvisible) {
+            panel.getLocationOnScreen(loc);
+            covered = caretBounds.intersects(loc[0], loc[1], loc[0]+panel.getWidth(), loc[1]+panel.getHeight());
+        }
         if(obscured!=covered) {obscured=covered;schedulePreview();}
     }
     private void runShortcut(VoiceShortcut action) {

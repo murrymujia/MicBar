@@ -1,0 +1,55 @@
+name: MicBar
+options:
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: 1
+targets:
+  MicBar:
+    type: application
+    platform: iOS
+    sources: [App]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.micbar.ios
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: 轻声键盘
+        UILaunchScreen: {}
+        NSMicrophoneUsageDescription: 你开始听写时，轻声键盘需要使用麦克风。
+        NSSpeechRecognitionUsageDescription: 使用本机语音识别生成可编辑的听写草稿。
+    dependencies:
+      - target: MicBarKeyboard
+  MicBarKeyboard:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Keyboard
+      - path: ../app/src/main/assets/pinyin-common.tsv
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.micbar.ios.keyboard
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+    info:
+      path: Keyboard/Info.plist
+      properties:
+        CFBundleDisplayName: 轻声键盘
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.keyboard-service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).KeyboardController
+          NSExtensionAttributes:
+            IsASCIICapable: true
+            PrimaryLanguage: zh-Hans
+            RequestsOpenAccess: false
+schemes:
+  MicBar:
+    build:
+      targets:
+        MicBar: all

@@ -6,6 +6,7 @@ import java.io.File;
 public final class MicBarApp extends Application {
     @Override public void onCreate() {
         super.onCreate();
+        AutoUpdates.schedule(this);
         if (!BuildConfig.HAS_WRITER) {
             WriterPack.file(this).delete();
             new File(getNoBackupFilesDir(),"writer-4b.part").delete();

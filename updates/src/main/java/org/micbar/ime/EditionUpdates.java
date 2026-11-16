@@ -69,7 +69,7 @@ final class EditionUpdates {
         c.setUseCaches(false);c.setConnectTimeout(12000);c.setReadTimeout(30000);
         c.setRequestProperty("User-Agent","MicBar-Update");return c;
     }
-    private static Release fetch()throws Exception {
+    static Release fetch()throws Exception {
         HttpsURLConnection c=connect(API);
         try(InputStream in=c.getInputStream();ByteArrayOutputStream out=new ByteArrayOutputStream()){
             byte[] b=new byte[4096];int n;
@@ -109,29 +109,40 @@ final class EditionUpdates {
             .setItems(comparison==0?new String[]{change}:new String[]{update,change},(d,i)->{
                 if(comparison==0 || i==1)browse(r.url(other));
                 else if(delta)prepare(base,r,patch,apk);
-                else browse(r.url(apk));
+                else prepare(base,r,null,apk);
             }).show();
+    }
+    // A background job and the foreground update button may request the same artifact.
+    static synchronized File stage(Context context,File base,Release release,Asset patch,Asset apk)throws Exception {
+        if(!apk.sha.matches("[a-f0-9]{64}")) throw new IOException("安装包缺少校验信息");
+        File dir=new File(context.getCacheDir(),"updates");
+        if(!dir.isDirectory() && !dir.mkdirs())throw new IOException("无法创建更新目录");
+        File output=new File(dir,apk.sha+".apk"),part=new File(dir,"update.part"),recipe=new File(dir,"update.patch");
+        if(output.isFile() && output.length()==apk.bytes) return output;
+        File[] stale=dir.listFiles();
+        if(stale!=null) for(File f:stale) f.delete();
+        try {
+            long required=apk.bytes+(patch==null?0:patch.bytes);
+            if(dir.getUsableSpace()<required)throw new IOException("空间不足，需临时留出 "+size(required));
+            if(patch==null) download(release.url(apk),apk,part);
+            else {
+                download(release.url(patch),patch,recipe);
+                ApkDelta.apply(base,recipe,part,apk.bytes,apk.sha);
+            }
+            android.system.Os.rename(part.getPath(),output.getPath());
+            return output;
+        } finally {recipe.delete();part.delete();}
     }
     private void prepare(File base,Release release,Asset patch,Asset apk) {
         if(!preparing.compareAndSet(false,true)){Toast.makeText(activity,"已有更新正在准备",Toast.LENGTH_SHORT).show();return;}
-        ProgressDialog progress=new ProgressDialog(activity);progress.setMessage("正在下载差分并在本机还原安装包…");progress.setCancelable(false);progress.show();
+        ProgressDialog progress=new ProgressDialog(activity);progress.setMessage("正在准备更新…");progress.setCancelable(false);progress.show();
         new Thread(()->{
-            File dir=new File(activity.getCacheDir(),"updates");
-            File output=new File(dir,apk.sha+".apk"),part=new File(dir,"update.part"),recipe=new File(dir,"update.patch");
             Runnable result;
             try {
-                if(!dir.isDirectory() && !dir.mkdirs())throw new IOException("无法创建更新目录");
-                File[] stale=dir.listFiles();
-                if(stale!=null) for(File f:stale) if(!f.equals(output)) f.delete();
-                if(!output.isFile()){
-                    if(dir.getUsableSpace()<apk.bytes+patch.bytes)throw new IOException("空间不足，需临时留出 "+size(apk.bytes+patch.bytes));
-                    download(release.url(patch),patch,recipe);
-                    ApkDelta.apply(base,recipe,part,apk.bytes,apk.sha);
-                    android.system.Os.rename(part.getPath(),output.getPath());
-                }
+                stage(activity,base,release,patch,apk);
                 result=()->install(apk.sha);
-            }catch(Exception e){String message=e.getMessage();result=()->alert("增量更新未完成。"+(message==null?"请重试。":message));}
-            finally {recipe.delete();part.delete();preparing.set(false);}
+            }catch(Exception e){String message=e.getMessage();result=()->alert("更新未完成。"+(message==null?"请重试。":message));}
+            finally {preparing.set(false);}
             final Runnable finish=result;
             activity.runOnUiThread(()->{if(visible()){progress.dismiss();finish.run();}});
         },"micbar-update-prepare").start();
@@ -141,13 +152,14 @@ final class EditionUpdates {
         try(InputStream in=c.getInputStream();OutputStream out=new FileOutputStream(dest)){
             byte[] b=new byte[65536];long total=0;int n;
             while((n=in.read(b))!=-1){
+                if(Thread.currentThread().isInterrupted())throw new java.io.InterruptedIOException();
                 total+=n;if(total>asset.bytes)throw new IOException("下载大小异常");
                 digest.update(b,0,n);out.write(b,0,n);
             }
             if(total!=asset.bytes || !asset.sha.equals(ApkDelta.hex(digest.digest())))throw new IOException("差分校验失败");
         }finally{c.disconnect();}
     }
-    private void install(String sha) {
+    void install(String sha) {
         Uri uri=new Uri.Builder().scheme("content").authority(activity.getPackageName()+".updates").appendPath(sha+".apk").build();
         Intent open=new Intent(Intent.ACTION_VIEW).setDataAndType(uri,"application/vnd.android.package-archive")
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);

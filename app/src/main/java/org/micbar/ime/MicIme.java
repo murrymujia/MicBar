@@ -27,7 +27,7 @@ public final class MicIme extends InputMethodService {
     private boolean remote, obscured, markerInvisible;
     private VoiceShortcut pendingTab;
     private android.graphics.RectF caretBounds;
-    private String recentInput="";
+    private boolean previewConfirmed;
     private String undoText="",undoOriginal="";
     private int undoEnd=-1;
     private long caretVersion;
@@ -48,7 +48,7 @@ public final class MicIme extends InputMethodService {
             if(!ic.setSelection(undoEnd-undoText.length(),undoEnd) || !ic.commitText(undoOriginal,1)) return false;
         }
         setToolbarReturn(ToolbarReturn.IDLE);
-        undoText="";recentInput="";schedulePreview();return true;
+        undoText="";previewConfirmed=false;schedulePreview();return true;
     }
     private final HandlerThread readerThread=new HandlerThread("EditorPreview");
     private Handler reader;
@@ -131,10 +131,7 @@ public final class MicIme extends InputMethodService {
                     undoEnd=selectionEnd(current);
                     if(undoEnd>=0) {undoText=text;undoOriginal=replaced;}
                 }
-                if(ok && rememberEditor()) {
-                    recentInput=tail(recentInput+text);
-                    panel.showEditorLine(recentInput);schedulePreview();
-                }
+                if(ok) { previewConfirmed=false; schedulePreview(); }
                 if (!ok) toast("当前输入框未接受文字");
                 return ok;
             }
@@ -188,16 +185,12 @@ public final class MicIme extends InputMethodService {
         insets.touchableInsets = Insets.TOUCHABLE_INSETS_REGION;
         insets.touchableRegion.set(pos[0],pos[1],pos[0]+active.getWidth(),pos[1]+active.getHeight());
     }
-    private boolean rememberEditor() {
-        return panel!=null && panel.permitsLearning() && (watchEditor() || remote || panel.shortLandscape())
-                && prefs().getBoolean("editorPreview",true);
-    }
     private boolean watchEditor() {
-        return panel!=null && panel.canPreview() && (remote || obscured || panel.shortLandscape()) && draftTarget!=null
+        return !previewConfirmed && panel!=null && panel.canPreview() && (remote || obscured || panel.shortLandscape()) && draftTarget!=null
                 && prefs().getBoolean("editorPreview",true);
     }
     private static String tail(String text) {
-        int start=Math.max(0,text.length()-96);
+        int start=Math.max(text.lastIndexOf('\n')+1,text.length()-96);
         if(start<text.length() && Character.isLowSurrogate(text.charAt(start))) start++;
         return text.substring(start);
     }
@@ -220,13 +213,16 @@ public final class MicIme extends InputMethodService {
                 if(before!=null && before.length()>0) value=tail(before.toString());
                 if(before!=null && before.length()==0) {
                     CharSequence after=ic.getTextAfterCursor(48,0);
-                    if(after!=null && after.length()>0) value="▏"+after;
+                    if(after!=null && after.length()>0) {
+                        String rest=after.toString().split("\n",2)[0];
+                        if(!rest.isEmpty()) value="▏"+rest;
+                    }
                 }
             } catch(RuntimeException unavailable) { /* The target may already have closed. */ }
             final String line=value;
             main.post(()->{
                 if(version==previewVersion && ic==draftTarget && watchEditor())
-                    panel.showEditorLine(line!=null?line:recentInput.isEmpty()?"":"本次键入 · "+recentInput);
+                    panel.showEditorLine(line==null?"":line);
             });
         });
     }
@@ -274,7 +270,7 @@ public final class MicIme extends InputMethodService {
         if(panel.hasText() && !panel.confirm(false)) return;
         if(ic!=getCurrentInputConnection() || ic!=draftTarget) return;
         if(action==VoiceShortcut.TAB) {pressEditorKey(KeyEvent.KEYCODE_TAB);return;}
-        undoText="";aiOld="";recentInput="";schedulePreview();
+        undoText="";aiOld="";previewConfirmed=false;schedulePreview();
         long now=SystemClock.uptimeMillis();
         int shift=KeyEvent.META_SHIFT_ON | KeyEvent.META_SHIFT_LEFT_ON;
         shortcutEvent(ic,now,KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_SHIFT_LEFT,shift);
@@ -288,6 +284,7 @@ public final class MicIme extends InputMethodService {
     }
     private void setToolbarReturn(ToolbarReturn next) {
         toolbarReturn = next;
+        if(next==ToolbarReturn.READY) { previewConfirmed=true;schedulePreview(); }
         if (panel != null) panel.showSendAction(next == ToolbarReturn.FILL_PENDING || next == ToolbarReturn.READY);
     }
 
@@ -316,6 +313,7 @@ public final class MicIme extends InputMethodService {
     }
 
     private void sendFromToolbar() {
+        previewConfirmed=true;schedulePreview();
         enteredText=false;
         setToolbarReturn(ToolbarReturn.IDLE);
         InputConnection ic = getCurrentInputConnection();
@@ -332,12 +330,8 @@ public final class MicIme extends InputMethodService {
         setToolbarReturn(ToolbarReturn.IDLE);
         InputConnection current=getCurrentInputConnection();
         if(current==null || current!=draftTarget || !isInputViewShown()) return;
-        if(rememberEditor()) {
-            if(code==KeyEvent.KEYCODE_DEL && !recentInput.isEmpty())
-                recentInput=recentInput.substring(0,recentInput.offsetByCodePoints(recentInput.length(),-1));
-            else recentInput="";
-            panel.showEditorLine(recentInput);schedulePreview();
-        }
+        previewConfirmed=code==KeyEvent.KEYCODE_ENTER;
+        schedulePreview();
         undoText="";
         if(code==KeyEvent.KEYCODE_ENTER && sendDefaultEditorAction(true)) return;
         sendDownUpKeyEvents(code);
@@ -349,7 +343,7 @@ public final class MicIme extends InputMethodService {
             String app=info.packageName;
             remote="com.oplus.remotecontrol".equals(app) || "com.oplus.linker".equals(app)
                     || "com.oplus.padconnect".equals(app);
-            obscured=true;recentInput="";
+            obscured=true;previewConfirmed=false;
             openPanel(!remote);
             InputConnection ic=getCurrentInputConnection();
             if(ic!=null) {
@@ -369,7 +363,7 @@ public final class MicIme extends InputMethodService {
     }
     private void endEditor() {
         enteredText=false;
-        aiOld="";aiNew="";caretVersion++;undoText="";undoOriginal="";undoEnd=-1;cancel(); draftTarget=null;remote=false;obscured=false;caretBounds=null;markerInvisible=false;recentInput="";schedulePreview();
+        aiOld="";aiNew="";caretVersion++;undoText="";undoOriginal="";undoEnd=-1;cancel(); draftTarget=null;remote=false;obscured=false;caretBounds=null;markerInvisible=false;previewConfirmed=false;schedulePreview();
         if(panel!=null) { panel.reset();panel.setVisibility(View.GONE); }
     }
     @Override public void onStartInput(EditorInfo info, boolean restarting) { super.onStartInput(info,restarting); if(!restarting || draftTarget!=getCurrentInputConnection()) endEditor(); }

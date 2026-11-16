@@ -5,8 +5,12 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <queries><intent><action android:name="android.speech.RecognitionService"/></intent></queries>
     <application android:name=".MicBarApp" android:icon="@drawable/mic_icon" android:label="@string/app_name" android:allowBackup="false" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <service android:name=".AutoUpdates" android:permission="android.permission.BIND_JOB_SERVICE" android:exported="true"/>
         <provider android:name="org.micbar.ime.UpdateFile" android:authorities="${applicationId}.updates" android:exported="false" android:grantUriPermissions="true"/>
         <activity android:name=".SetupActivity" android:exported="true" android:windowSoftInputMode="adjustResize|stateAlwaysHidden">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>

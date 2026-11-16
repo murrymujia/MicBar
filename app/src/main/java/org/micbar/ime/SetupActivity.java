@@ -24,7 +24,8 @@ public final class SetupActivity extends Activity {
     private InputMethodManager manager;
     private static final int INK = 0xff152b27, MUTED = 0xff465f59, ACCENT = 0xff195950;
     private static final int IMPORT_MODEL=74;
-    private Button writerModel;
+    private Button writerModel, installReady;
+    private final SharedPreferences.OnSharedPreferenceChangeListener updatesChanged=(prefs,key)->refreshUpdate();
     private boolean asked;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -127,6 +128,20 @@ public final class SetupActivity extends Activity {
         label("内置模式在平板上识别，不保存录音。设备语音服务可能联网。切换输入框或收起键盘会取消当前听写。",14,false,8);
         label("版本与更新",19,true,20);
         label("当前版本  " + BuildConfig.VERSION_NAME + " · " + EditionUpdates.editionName(BuildConfig.HAS_WRITER),15,false,4);
+        CheckBox automatic=new CheckBox(this);
+        automatic.setText("在非计费网络自动准备增量更新");automatic.setChecked(AutoUpdates.enabled(this));
+        automatic.setOnCheckedChangeListener((v,on)->{
+            AutoUpdates.state(this).edit().putBoolean("automatic",on).apply();AutoUpdates.schedule(this);
+        });
+        add(automatic,4,-2);
+        if(Build.VERSION.SDK_INT>=33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED) {
+            Button notify=new Button(this);notify.setText("开启更新就绪通知");
+            notify.setOnClickListener(v->requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},75));
+            add(notify,4,-2);
+        }
+        installReady=new Button(this);
+        installReady.setOnClickListener(v->{String sha=AutoUpdates.ready(this);if(!sha.isEmpty())new EditionUpdates(this).install(sha);else refreshUpdate();});
+        add(installReady,4,-2);refreshUpdate();
         Button releases = new Button(this);
         releases.setText("检查更新 / 切换版本");
         releases.setOnClickListener(v -> new EditionUpdates(this).check(releases));
@@ -134,6 +149,11 @@ public final class SetupActivity extends Activity {
         Button about=new Button(this); about.setText("隐私与开源许可");
         about.setOnClickListener(v -> showAbout()); add(about,10,-2);
         setContentView(viewport);
+    }
+    private void refreshUpdate(){
+        if(installReady==null)return;
+        installReady.setVisibility(AutoUpdates.ready(this).isEmpty()?View.GONE:View.VISIBLE);
+        installReady.setText("立即安装 "+AutoUpdates.state(this).getString("version",""));
     }
     private void refreshWriter() {
         if(writerModel!=null) writerModel.setText("写作模型 · "+(WriterPack.enabled(this)?WriterPack.NAME:"内置 0.5B"));
@@ -180,6 +200,7 @@ public final class SetupActivity extends Activity {
     };
     @Override protected void onResume() {
         super.onResume();
+        AutoUpdates.state(this).registerOnSharedPreferenceChangeListener(updatesChanged);refreshUpdate();
         boolean allowed=Settings.canDrawOverlays(this);
         boolean wanted=getSharedPreferences("micbar",MODE_PRIVATE).getBoolean(EdgeSwitcher.ENABLED,false);
         if (pendingOverlay || wanted) setBubble(allowed);
@@ -188,7 +209,7 @@ public final class SetupActivity extends Activity {
         getContentResolver().registerContentObserver(Settings.Secure.getUriFor(Settings.Secure.DEFAULT_INPUT_METHOD),false,imeChanged);
         update();
     }
-    @Override protected void onPause() { getContentResolver().unregisterContentObserver(imeChanged);super.onPause(); }
+    @Override protected void onPause() { AutoUpdates.state(this).unregisterOnSharedPreferenceChangeListener(updatesChanged);getContentResolver().unregisterContentObserver(imeChanged);super.onPause(); }
     @Override public void onWindowFocusChanged(boolean focus) { super.onWindowFocusChanged(focus); if(focus) update(); }
     private boolean permitted() { return checkSelfPermission(Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED; }
     private boolean enabled() {
@@ -268,7 +289,7 @@ public final class SetupActivity extends Activity {
     private void showAbout() {
         android.app.AlertDialog dialog=new android.app.AlertDialog.Builder(this)
                 .setTitle("隐私与开源许可")
-                .setMessage("内置听写在本机处理音频。录音和草稿只留在当前会话，个人词典仅在本机保存你添加的写法，以及自动学习的选词和听写改字。可逐条删除或清空。打字、内置听写和本地写作均在设备上完成。点「检查更新」时仅向 GitHub 查询公开版本信息。选择设备语音服务时，语音由该服务处理。点 ✓ 填入后，接收文字的应用可以读取它。\n\n拼音和英文打字无需麦克风权限。可在系统设置中撤回麦克风权限。")
+                .setMessage("内置听写在本机处理音频。录音和草稿只留在当前会话，个人词典仅在本机保存你添加的写法，以及自动学习的选词和听写改字。可逐条删除或清空。打字、内置听写和本地写作均在设备上完成。自动更新会在非计费网络向 GitHub 查询公开版本并预取差分，可在首页关闭。手动检查更新也会访问 GitHub。选择设备语音服务时，语音由该服务处理。点 ✓ 填入后，接收文字的应用可以读取它。\n\n拼音和英文打字无需麦克风权限。可在系统设置中撤回麦克风权限。")
                 .setPositiveButton("完成",null)
                 .setNeutralButton("开源组件", (d,w) -> showLicenses()).create();
         dialog.show();

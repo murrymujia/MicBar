@@ -3,13 +3,13 @@ package org.micbar.ime;
 import android.app.*;
 import android.content.*;
 import android.content.res.Configuration;
-import android.database.ContentObserver;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.os.*;
 import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.view.*;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Toast;
 
 /** Optional screen-edge shortcut for the Android keyboard picker. */
@@ -28,9 +28,8 @@ public final class EdgeSwitcher extends Service {
     private boolean floatingIme;
     private int originX,originY,usableWidth,usableHeight;
     private final Handler main=new Handler(Looper.getMainLooper());
-    private final ContentObserver selection=new ContentObserver(main) {
-        @Override public void onChange(boolean selfChange) { refresh(); }
-    };
+    private final Runnable visibilityChanged=this::refresh;
+    private MicBarApp app() {return (MicBarApp)getApplication();}
     private SharedPreferences prefs() { return getSharedPreferences("micbar",MODE_PRIVATE); }
     private int dp(int x) { return Math.round(getResources().getDisplayMetrics().density*x); }
     @Override public IBinder onBind(Intent i) { return null; }
@@ -44,8 +43,14 @@ public final class EdgeSwitcher extends Service {
         heightFraction=prefs().getFloat("edgeVertical",.72f);
         floatingHeightFraction=prefs().getFloat("edgeFloatingVertical",.20f);
         button=new ToolButton(displayContext);
-        button.display(ToolButton.Icon.KEYBOARD,"切换到轻声键盘",0xffffffff,0xff344761);
+        button.display(ToolButton.Icon.KEYBOARD,"切换输入法",0xffffffff,0xff344761);
         button.setOnClickListener(v -> {
+            // Keep the current editor focused when our IME already owns the input session.
+            MicIme ime=app().visibleIme;
+            if(ime!=null) {
+                ime.getSystemService(InputMethodManager.class).showInputMethodPicker();
+                return;
+            }
             Intent picker=new Intent(this,PickerActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(picker);
@@ -76,7 +81,7 @@ public final class EdgeSwitcher extends Service {
             stopSelf();return START_NOT_STICKY;
         }
         if (!observing) {
-            getContentResolver().registerContentObserver(Settings.Secure.getUriFor(Settings.Secure.DEFAULT_INPUT_METHOD),false,selection);
+            app().imeVisibilityChanged=visibilityChanged;
             observing=true;
             WindowManager.LayoutParams monitor=new WindowManager.LayoutParams(1,-1,TYPE,PASSIVE
                     |WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM|WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
@@ -117,9 +122,9 @@ public final class EdgeSwitcher extends Service {
                 if(ime>0) usableHeight=Math.min(usableHeight,full.height()-bars.top-ime);
             }
         }
-        String ime=Settings.Secure.getString(getContentResolver(),Settings.Secure.DEFAULT_INPUT_METHOD);
-        boolean ours=ime!=null && ime.startsWith(getPackageName()+"/");
-        boolean show=keyboard && !ours && !getSystemService(KeyguardManager.class).isKeyguardLocked();
+        // Compact and floating input views can reserve only the navigation-bar inset.
+        if(app().visibleIme!=null && !keyboard) { keyboard=true;floating=true; }
+        boolean show=keyboard && !getSystemService(KeyguardManager.class).isKeyguardLocked();
         if(!show) {removeButton();return;}
         if(!dragging) {floatingIme=floating;place();}
         try {
@@ -172,7 +177,7 @@ public final class EdgeSwitcher extends Service {
     }
     @Override public void onConfigurationChanged(Configuration cfg) {super.onConfigurationChanged(cfg);main.post(this::refresh);}
     @Override public void onDestroy() {
-        if(observing) getContentResolver().unregisterContentObserver(selection);
+        if(app().imeVisibilityChanged==visibilityChanged) app().imeVisibilityChanged=null;
         observing=false;main.removeCallbacksAndMessages(null);removeButton();
         if(probe.isAttachedToWindow()) windows.removeViewImmediate(probe);
         stopForeground(STOP_FOREGROUND_REMOVE);super.onDestroy();

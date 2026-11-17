@@ -4,6 +4,15 @@ import android.app.Application;
 import java.io.File;
 
 public final class MicBarApp extends Application {
+    // IME and overlay callbacks run on the main thread in the same process.
+    MicIme visibleIme;
+    Runnable imeVisibilityChanged;
+    void setVisibleIme(MicIme ime) {
+        if(visibleIme==ime) return;
+        visibleIme=ime;
+        if(imeVisibilityChanged!=null) imeVisibilityChanged.run();
+    }
+
     @Override public void onCreate() {
         super.onCreate();
         AutoUpdates.schedule(this);

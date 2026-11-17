@@ -393,8 +393,16 @@ public final class MicIme extends InputMethodService {
     @Override public void onStartInput(EditorInfo info, boolean restarting) { super.onStartInput(info,restarting); if(!restarting || draftTarget!=getCurrentInputConnection()) endEditor(); }
     @Override public void onFinishInputView(boolean finishing) { endEditor(); super.onFinishInputView(finishing); }
     @Override public void onFinishInput() { endEditor(); super.onFinishInput(); }
-    @Override public void onWindowHidden() { endEditor(); super.onWindowHidden(); }
-    @Override public void onDestroy() { endEditor(); if(panel!=null) panel.dispose(); offline.release(); readerThread.quitSafely(); super.onDestroy(); }
+    @Override public void onWindowShown() {
+        super.onWindowShown();
+        ((MicBarApp)getApplication()).setVisibleIme(this);
+    }
+    private void clearVisibleIme() {
+        MicBarApp app=(MicBarApp)getApplication();
+        if(app.visibleIme==this) app.setVisibleIme(null);
+    }
+    @Override public void onWindowHidden() { clearVisibleIme(); endEditor(); super.onWindowHidden(); }
+    @Override public void onDestroy() { clearVisibleIme(); endEditor(); if(panel!=null) panel.dispose(); offline.release(); readerThread.quitSafely(); super.onDestroy(); }
     private SharedPreferences prefs() { return getSharedPreferences("micbar", MODE_PRIVATE); }
     private void toast(String message) { Toast.makeText(this, message, Toast.LENGTH_SHORT).show(); }
     private void refresh() {

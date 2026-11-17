@@ -82,10 +82,10 @@ public final class SetupActivity extends Activity {
             add(writerModel,4,-2);
         label("暂停听写后长按麦克风，可整理、校对、缩短或翻译草稿；打字时也可以先选中文字。长按工具栏退格可撤销刚填入的听写。",15,false,6);
         }
-        label("从其他键盘切回来",19,true,24);
+        label("双向切换输入法",19,true,24);
         bubble=new Switch(this);
         bubble.setText("贴边悬浮按钮");bubble.setTextSize(17); add(bubble,5,48);
-        label("用其他键盘打字时，点屏幕边缘的小键盘，选择轻声键盘。拖动按钮可换边或调整高度。",15,false,4);
+        label("输入时点屏幕边缘的小键盘，选择想用的输入法。四键语音栏也支持。拖动按钮可换边或调整高度。",15,false,4);
         pendingOverlay=state!=null && state.getBoolean("pendingOverlay");
         bubble.setOnClickListener(v -> {
             if(!bubble.isChecked()) { setBubble(false); return; }

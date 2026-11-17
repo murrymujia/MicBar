@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.view.*;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.*;
 import android.text.Editable;
 import static android.text.InputType.*;
@@ -219,8 +220,26 @@ final class DraftPanel extends LinearLayout {
         edit=tool(bar,() -> showKeyboard(!expanded()));
         edit.setOnLongClickListener(v->{
             if(expanded()) return false;
-            if(!drafting) {Toast.makeText(getContext(),"暂无听写草稿",Toast.LENGTH_SHORT).show();return true;}
-            peek=!showPeek();peekChosen=true;applyColors();requestLayout();return true;
+            pickerOpened=true;
+            host.picker();
+            return true;
+        });
+        edit.setOnTouchListener(this::swipeKeyboardKey);
+        edit.setAccessibilityDelegate(new View.AccessibilityDelegate() {
+            @Override public void onInitializeAccessibilityNodeInfo(View view,AccessibilityNodeInfo info) {
+                super.onInitializeAccessibilityNodeInfo(view,info);
+                if(expanded()) return;
+                info.addAction(new AccessibilityNodeInfo.AccessibilityAction(
+                        AccessibilityNodeInfo.ACTION_LONG_CLICK,"换输入法"));
+                if(drafting) info.addAction(new AccessibilityNodeInfo.AccessibilityAction(
+                        R.id.toggle_draft_preview,showPeek()?"收起草稿预览":"显示草稿预览"));
+            }
+            @Override public boolean performAccessibilityAction(View view,int action,android.os.Bundle args) {
+                if(action==R.id.toggle_draft_preview && !expanded() && drafting) {
+                    toggleDraftPreview();return true;
+                }
+                return super.performAccessibilityAction(view,action,args);
+            }
         });
         submit=tool(bar,this::fillOnly);
         submit.display(ToolButton.Icon.CHECK,"填入草稿",blue,accent);
@@ -275,6 +294,39 @@ final class DraftPanel extends LinearLayout {
         dragHandle.addView(grip,new FrameLayout.LayoutParams(dp(70),dp(4),Gravity.CENTER));
         addView(dragHandle,new LayoutParams(-1,dp(36)));
         showKeyboard(false); endVoice();
+    }
+    private float keyboardDownX, keyboardDownY;
+    private boolean previewSwipe, pickerOpened;
+    private boolean swipeKeyboardKey(View key,MotionEvent event) {
+        if(expanded()) return false;
+        switch(event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                keyboardDownX=event.getRawX();keyboardDownY=event.getRawY();
+                previewSwipe=false;pickerOpened=false;
+                return false;
+            case MotionEvent.ACTION_MOVE:
+                float upwards=keyboardDownY-event.getRawY();
+                if(!previewSwipe && !pickerOpened && upwards>=dp(18)
+                        && upwards>Math.abs(event.getRawX()-keyboardDownX)) {
+                    MotionEvent cancel=MotionEvent.obtain(event);
+                    cancel.setAction(MotionEvent.ACTION_CANCEL);
+                    key.onTouchEvent(cancel);cancel.recycle();
+                    previewSwipe=true;
+                }
+                return previewSwipe;
+            case MotionEvent.ACTION_UP:
+                if(!previewSwipe) return false;
+                previewSwipe=false;toggleDraftPreview();return true;
+            case MotionEvent.ACTION_CANCEL:
+                boolean consumed=previewSwipe;
+                previewSwipe=false;return consumed;
+            default:return false;
+        }
+    }
+    private void toggleDraftPreview() {
+        if(!drafting) {notice("暂无听写草稿");return;}
+        peek=!showPeek();peekChosen=true;
+        applyColors();requestLayout();
     }
     private boolean dragMic(View v,MotionEvent e) {
         if(expanded()) return false;
@@ -467,6 +519,7 @@ final class DraftPanel extends LinearLayout {
         settings.display(preferencesOpen?ToolButton.Icon.BACK:ToolButton.Icon.SETTINGS,
                 preferencesOpen?"返回键盘":"键盘设置",ink,0);
         edit.display(expanded()?ToolButton.Icon.FOLD:ToolButton.Icon.KEYBOARD,expanded()?"折叠键盘":"展开键盘",muted,0);
+        if(!expanded()) edit.setTooltipText("轻点展开键盘，长按换输入法，上滑显示或收起草稿");
         submit.display(ToolButton.Icon.CHECK,"填入草稿",blue,accent);
         hide.display(ToolButton.Icon.DOWN,"隐藏输入法",muted,0);
         if (floating() && hide.getParent()==bar) {

@@ -60,7 +60,7 @@ public final class SetupActivity extends Activity {
         content.setPadding(dp(24),dp(28),dp(24),dp(36));
         content.setFocusableInTouchMode(true); page.addView(content,column);
         label("轻声键盘",32,true,0);
-        label("点麦克风开始听写，再点暂停。草稿默认收起，长按键盘图标可在同一行查看，再长按收起。点键盘即可展开改字。点退格删除，轻点工具栏回车填入草稿，确认后再点同一位置的发送箭头。长按回车可直接填入并执行回车。",17,false,10);
+        label("点麦克风开始听写，再点暂停。草稿默认收起，从四键栏的键盘图标上滑可在同一行查看草稿，再上滑收起。轻点展开改字，长按直接换输入法。点退格删除，轻点工具栏回车填入草稿，确认后再点同一位置的发送箭头。长按回车可直接填入并执行回车。",17,false,10);
         status=label("",16,true,25);
         next=new Button(this); next.setTextColor(0xffffffff); next.setBackground(tint(ACCENT,14)); next.setAllCaps(false);
         next.setOnClickListener(v -> advance()); add(next,10,50);

@@ -1,0 +1,22 @@
+plugins { id 'com.android.application' version '8.7.3' }
+
+android {
+    namespace 'org.micbar.offlineupdate'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'org.micbar.offlineupdate'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+    }
+    sourceSets.main {
+        assets.srcDir file(providers.gradleProperty('offlineUpdateAssets').get())
+        java.srcDir '../updates/src/main/java'
+        java.exclude '**/EditionUpdates.java'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}

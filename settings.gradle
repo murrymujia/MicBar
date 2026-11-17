@@ -3,3 +3,6 @@ dependencyResolutionManagement { repositories { google(); mavenCentral() } }
 rootProject.name = 'MicBar'
 include ':app'
 include ':updater'
+if (providers.gradleProperty("offlineUpdateAssets").isPresent()) {
+    include ':offline-updater'
+}

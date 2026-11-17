@@ -143,9 +143,11 @@ public final class SetupActivity extends Activity {
         installReady.setOnClickListener(v->{String sha=AutoUpdates.ready(this);if(!sha.isEmpty())new EditionUpdates(this).install(sha);else refreshUpdate();});
         add(installReady,4,-2);refreshUpdate();
         Button releases = new Button(this);
-        releases.setText("检查更新 / 切换版本");
-        releases.setOnClickListener(v -> new EditionUpdates(this).check(releases));
+        releases.setText("更新轻声键盘");
+        releases.setOnClickListener(v -> new EditionUpdates(this).check(releases,true));
         add(releases,6,-2);
+        Button editions=new Button(this);editions.setText("版本与切换");
+        editions.setOnClickListener(v->new EditionUpdates(this).check(editions));add(editions,4,-2);
         Button about=new Button(this); about.setText("隐私与开源许可");
         about.setOnClickListener(v -> showAbout()); add(about,10,-2);
         setContentView(viewport);
@@ -289,7 +291,7 @@ public final class SetupActivity extends Activity {
     private void showAbout() {
         android.app.AlertDialog dialog=new android.app.AlertDialog.Builder(this)
                 .setTitle("隐私与开源许可")
-                .setMessage("内置听写在本机处理音频。录音和草稿只留在当前会话，个人词典仅在本机保存你添加的写法，以及自动学习的选词和听写改字。可逐条删除或清空。打字、内置听写和本地写作均在设备上完成。自动更新会在非计费网络向 GitHub 查询公开版本并预取差分，可在首页关闭。手动检查更新也会访问 GitHub。选择设备语音服务时，语音由该服务处理。点 ✓ 填入后，接收文字的应用可以读取它。\n\n拼音和英文打字无需麦克风权限。可在系统设置中撤回麦克风权限。")
+                .setMessage("内置听写在本机处理音频。录音和草稿只留在当前会话，个人词典仅在本机保存你添加的写法，以及自动学习的选词和听写改字。可逐条删除或清空。打字、内置听写和本地写作均在设备上完成。自动更新会在非计费网络通过 jsDelivr 或 GitHub 查询公开版本并预取差分，可在首页关闭。手动更新使用相同渠道。选择设备语音服务时，语音由该服务处理。点 ✓ 填入后，接收文字的应用可以读取它。\n\n拼音和英文打字无需麦克风权限。可在系统设置中撤回麦克风权限。")
                 .setPositiveButton("完成",null)
                 .setNeutralButton("开源组件", (d,w) -> showLicenses()).create();
         dialog.show();

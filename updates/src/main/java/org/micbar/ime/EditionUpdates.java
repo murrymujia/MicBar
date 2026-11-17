@@ -18,6 +18,7 @@ import org.json.*;
 final class EditionUpdates {
     private static final String PROJECT="https://github.com/murrymujia/MicBar";
     private static final String API="https://api.github.com/repos/murrymujia/MicBar/releases/latest";
+    private static final String CDN="https://cdn.jsdelivr.net/gh/murrymujia/MicBar@";
     private static final AtomicBoolean preparing=new AtomicBoolean();
     private final Activity activity;
     EditionUpdates(Activity activity){this.activity=activity;}
@@ -69,19 +70,40 @@ final class EditionUpdates {
         c.setUseCaches(false);c.setConnectTimeout(12000);c.setReadTimeout(30000);
         c.setRequestProperty("User-Agent","MicBar-Update");return c;
     }
-    static Release fetch()throws Exception {
-        HttpsURLConnection c=connect(API);
+    private static JSONObject jsonAt(String url)throws Exception {
+        HttpsURLConnection c=connect(url);
         try(InputStream in=c.getInputStream();ByteArrayOutputStream out=new ByteArrayOutputStream()){
             byte[] b=new byte[4096];int n;
             while((n=in.read(b))!=-1){if(out.size()+n>512*1024)throw new IOException();out.write(b,0,n);}
-            return new Release(new JSONObject(out.toString(StandardCharsets.UTF_8.name())));
+            return new JSONObject(out.toString(StandardCharsets.UTF_8.name()));
         }finally{c.disconnect();}
+    }
+    static Release fetch(Context context)throws Exception {
+        try {
+            JSONObject envelope=jsonAt(CDN+"update-channel/latest.json");
+            byte[] data=android.util.Base64.decode(envelope.getString("manifest"),android.util.Base64.DEFAULT);
+            byte[] signature=android.util.Base64.decode(envelope.getString("signature"),android.util.Base64.DEFAULT);
+            PackageInfo installed=context.getPackageManager().getPackageInfo("org.micbar.ime",
+                    android.content.pm.PackageManager.GET_SIGNATURES);
+            java.security.cert.Certificate certificate=java.security.cert.CertificateFactory.getInstance("X.509")
+                    .generateCertificate(new ByteArrayInputStream(installed.signatures[0].toByteArray()));
+            Signature verifier=Signature.getInstance("SHA256withRSA");
+            verifier.initVerify(certificate);
+            verifier.update(data);
+            if(!verifier.verify(signature)) throw new SignatureException("更新清单签名不匹配");
+            Release release=new Release(new JSONObject(new String(data,StandardCharsets.UTF_8)));
+            if(release.compare(installed.versionName)>=0) return release;
+        } catch(Exception unavailable) {
+            // The official release API remains usable when the CDN or its signature is unavailable.
+        }
+        return new Release(jsonAt(API));
     }
     private boolean visible(){return !activity.isDestroyed() && !activity.isFinishing();}
     private void alert(String message){
         new AlertDialog.Builder(activity).setMessage(message).setPositiveButton("打开下载页",(d,w)->browse(PROJECT+"/releases/latest")).setNegativeButton("关闭",null).show();
     }
-    void check(Button button){
+    void check(Button button){ check(button,false); }
+    void check(Button button,boolean updateOnly){
         CharSequence label=button.getText();button.setEnabled(false);button.setText("正在检查更新…");
         new Thread(()->{
             Runnable done;
@@ -90,18 +112,35 @@ final class EditionUpdates {
                 File base=new File(local.applicationInfo.sourceDir);
                 boolean full;
                 try(ZipFile zip=new ZipFile(base)){full=zip.getEntry("assets/qwen25-05.gguf")!=null;}
-                Release r=fetch();done=()->show(r,base,local.versionName,full);
+                Release r=fetch(activity);
+                done=()->{
+                    if(updateOnly) updateSameEdition(r,base,local.versionName,full);
+                    else show(r,base,local.versionName,full);
+                };
             }catch(android.content.pm.PackageManager.NameNotFoundException e){done=()->alert("设备上尚未安装轻声键盘。");}
             catch(Exception e){done=()->alert("暂时无法检查更新。可以稍后重试或打开 GitHub 下载页。");}
             final Runnable ui=done;
             activity.runOnUiThread(()->{if(visible()){button.setText(label);button.setEnabled(true);ui.run();}});
         },"micbar-update-check").start();
     }
+    private void updateSameEdition(Release r,File base,String local,boolean full){
+        if(r.compare(local)<=0){
+            Toast.makeText(activity,"当前已是最新版本 · "+local,Toast.LENGTH_LONG).show();
+            return;
+        }
+        Asset apk=r.apk(full),patch=r.patch(full,local);
+        if(usablePatch(patch,apk)) prepare(base,r,patch,apk);
+        else new AlertDialog.Builder(activity).setMessage("此次更新需要下载完整安装包（"+size(apk.bytes)+"）。")
+                .setPositiveButton("下载更新",(d,w)->prepare(base,r,null,apk)).setNegativeButton("取消",null).show();
+    }
+    private static boolean usablePatch(Asset patch,Asset apk){
+        return patch!=null && patch.bytes<apk.bytes && patch.sha.matches("[a-f0-9]{64}") && apk.sha.matches("[a-f0-9]{64}");
+    }
     private void show(Release r,File base,String local,boolean full) {
         int comparison=r.compare(local);
         AlertDialog.Builder box=new AlertDialog.Builder(activity).setNegativeButton("关闭",null);
         Asset apk=r.apk(full),other=r.apk(!full),patch=r.patch(full,local);
-        boolean delta=patch!=null && patch.bytes<apk.bytes && patch.sha.matches("[a-f0-9]{64}") && apk.sha.matches("[a-f0-9]{64}");
+        boolean delta=usablePatch(patch,apk);
         if(comparison<0){box.setMessage("本机版本高于最新公开版本。").show();return;}
         String change="切换到"+editionName(!full)+"（"+size(other.bytes)+"）";
         String update=delta?"增量更新（"+size(patch.bytes)+"）":"下载安装包（"+size(apk.bytes)+"）";
@@ -126,7 +165,12 @@ final class EditionUpdates {
             if(dir.getUsableSpace()<required)throw new IOException("空间不足，需临时留出 "+size(required));
             if(patch==null) download(release.url(apk),apk,part);
             else {
-                download(release.url(patch),patch,recipe);
+                try {
+                    download(CDN+"update-"+release.version+"/"+patch.name,patch,recipe);
+                } catch(IOException unavailable) {
+                    if(Thread.currentThread().isInterrupted()) throw unavailable;
+                    download(release.url(patch),patch,recipe);
+                }
                 ApkDelta.apply(base,recipe,part,apk.bytes,apk.sha);
             }
             android.system.Os.rename(part.getPath(),output.getPath());

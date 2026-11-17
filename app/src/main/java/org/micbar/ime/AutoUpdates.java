@@ -38,7 +38,7 @@ public final class AutoUpdates extends JobService {
         worker=new Thread(()->{
             boolean retry=false;
             try {
-                EditionUpdates.Release r=EditionUpdates.fetch();
+                EditionUpdates.Release r=EditionUpdates.fetch(this);
                 EditionUpdates.Asset apk=r.apk(BuildConfig.HAS_WRITER),patch=r.patch(BuildConfig.HAS_WRITER,BuildConfig.VERSION_NAME);
                 if(r.compare(BuildConfig.VERSION_NAME)>0 && patch!=null && patch.bytes<apk.bytes && patch.sha.matches("[a-f0-9]{64}")){
                     EditionUpdates.stage(this,new File(getApplicationInfo().sourceDir),r,patch,apk);

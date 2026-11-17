@@ -172,6 +172,11 @@ final class KeyboardOptions {
         section(box,"按键反馈");
         toggle(box,"按键音","keySound",false);
         toggle(box,"按键振动","keyHaptic",true);
+        Button update=new Button(context);
+        update.setText("更新轻声键盘");
+        update.setOnClickListener(v->context.startActivity(new android.content.Intent(context,KeyboardUpdateActivity.class)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)));
+        box.addView(update);
         ScrollView scroll=new ScrollView(context);scroll.addView(box);scroll.setBackgroundColor(base);return scroll;
     }
 }

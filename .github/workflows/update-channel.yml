@@ -1,0 +1,37 @@
+name: Publish Android update channel
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Current stable Android tag
+        required: true
+permissions:
+  contents: write
+concurrency: android-update-channel
+jobs:
+  mirror:
+    if: github.event_name == 'workflow_dispatch' || (startsWith(github.event.release.tag_name, 'v') && !github.event.release.prerelease)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/checkout@v4
+        with:
+          ref: update-channel
+          path: channel
+      - name: Verify and publish current release
+        working-directory: channel
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.event.release.tag_name }}
+        run: |
+          set -eu
+          python3 ../tools/publish-update-channel.py "$TAG"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git -c user.name=MicBar -c user.email=actions@github.com commit -m "Mirror $TAG"
+          fi
+          git push --atomic origin HEAD:refs/heads/update-channel "HEAD:refs/tags/update-${TAG#v}"

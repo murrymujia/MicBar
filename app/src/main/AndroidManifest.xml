@@ -15,6 +15,7 @@
         <activity android:name=".SetupActivity" android:exported="true" android:windowSoftInputMode="adjustResize|stateAlwaysHidden">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
         </activity>
+        <activity android:name=".KeyboardUpdateActivity" android:exported="false" android:theme="@android:style/Theme.Material.Light.Dialog.Alert"/>
         <activity android:name=".PickerActivity" android:exported="false" android:excludeFromRecents="true"
             android:taskAffinity="org.micbar.ime.picker" android:theme="@android:style/Theme.Material.Light.Dialog.Alert"
             android:windowSoftInputMode="stateAlwaysHidden"/>

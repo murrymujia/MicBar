@@ -6,6 +6,8 @@ Android 8.0+ 平板和手机使用的小麦克风输入法，支持 arm64-v8a、
 
 [下载最新版轻量版与完整版](https://github.com/murrymujia/MicBar/releases/latest)。平时在远程桌面说话、打字，选 **Lite 轻量版**。两个版本都内置 SenseVoiceSmall 中英混合离线听写、四键语音栏、Rime 拼音和英文键盘，以及共用的本机个人词典。**Full 完整版**额外内置 Qwen2.5-0.5B-Instruct 写作模型和 ARM64 推理组件，可离线校对、改写和翻译。
 
+从 Android 1.24 起，在键盘齿轮里或轻声键盘首页点「更新轻声键盘」即可准备同版型差分并打开系统安装器。清单和差分优先从 jsDelivr 获取，失败时回到 GitHub。客户端验证清单签名、差分和目标 APK 的 SHA-256。CDN 更新清单可能短时滞后。首次从旧版升级仍沿用旧版下载地址，也可在平板浏览器下载同版型 APK 覆盖安装。
+
 从 Android 1.21 起，系统会在非计费网络定期检查同版型更新，自动下载差分、校验并在本机准备好安装包。打开首页点「立即安装」并按系统提示确认即可，也可以开启更新就绪通知。更新受设备联网和后台任务调度影响。可在首页关闭自动准备，或随时点「检查更新 / 切换版本」。跨版型或缺少匹配差分时仅在手动选择后下载完整包。安装期间保留现有键盘可延续个人词典与设置。
 
 从 1.20 升到 1.21，在键盘首页点「检查更新 / 切换版本」再选「增量更新」。从 1.17 至 1.19 可使用发布页的小工具 MicBar-Updater.apk。1.16 及更早版本需要先覆盖安装一次新版。
@@ -52,5 +54,7 @@ Android 8.0+ 平板和手机使用的小麦克风输入法，支持 arm64-v8a、
 ## 构建
 
 使用 JDK 17 和 Android SDK 35。从 GitHub 克隆后，先运行 `python3 tools/restore-inputs.py --edition lite`，再运行 `./gradlew :app:assembleLiteDebug`。完整版使用 `--edition full` 和 `:app:assembleFullDebug`。恢复脚本从固定的 1.17 发布包提取模型、词库和原生库，从同一发布的 MicBar-build-libs.zip 取回 Java 依赖，并逐文件校验 SHA-256。可用 `--apk` 和 `--libs` 指定已下载的文件。生成待签名安装包时将 Debug 换成 Release。每次正式更新同时提高两版共用的 versionCode 和 versionName，以 v版本号 标签发布同一签名的 MicBar-Lite-版本号.apk 和 MicBar-Full-版本号.apk，对支持的每个起始版本运行 `python3 tools/make-delta.py OLD.apk NEW.apk MicBar-{Lite或Full}-{旧版本}-to-{新版本}.mupd`，将同版型差分连同两个 APK 和更新工具上传完成后，在 GitHub 标为最新稳定版。
+
+正式发布前，运行 `python3 tools/sign-update-index.py 版本号 --key 签名密钥路径 两个已签名APK及本次所有差分文件`，把标准输出保存为 `MicBar-update-index.json` 并与安装包和差分一并上传。公开稳定版发布后，Android update channel 工作流核对发布资产的摘要，再把签名清单和符合 CDN 大小限制的差分发布到 update-channel 分支及对应的不可变版本标签。密钥只在本机参与签名。
 
 第三方来源、版本及许可证见 app/src/main/assets/licenses。Rime 通过上游公开 C API 调用。编译版雾凇词库采用 Prism 4 格式，替换 Rime 版本时须一起验证词库格式并更新本地词库目录版本。远控端需要支持 Android InputConnection.commitText。

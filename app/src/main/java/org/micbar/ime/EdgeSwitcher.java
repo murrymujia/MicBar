@@ -24,7 +24,8 @@ public final class EdgeSwitcher extends Service {
     private ToolButton button;
     private WindowManager.LayoutParams bubbleParams;
     private boolean right, dragging, observing, buttonAdded;
-    private float heightFraction, downX, downY;
+    private float heightFraction, floatingHeightFraction, downX, downY;
+    private boolean floatingIme;
     private int originX,originY,usableWidth,usableHeight;
     private final Handler main=new Handler(Looper.getMainLooper());
     private final ContentObserver selection=new ContentObserver(main) {
@@ -41,6 +42,7 @@ public final class EdgeSwitcher extends Service {
         windows=displayContext.getSystemService(WindowManager.class);
         right=prefs().getBoolean("edgeRight",true);
         heightFraction=prefs().getFloat("edgeVertical",.72f);
+        floatingHeightFraction=prefs().getFloat("edgeFloatingVertical",.20f);
         button=new ToolButton(displayContext);
         button.display(ToolButton.Icon.KEYBOARD,"切换到轻声键盘",0xffffffff,0xff344761);
         button.setOnClickListener(v -> {
@@ -101,6 +103,7 @@ public final class EdgeSwitcher extends Service {
         usableWidth=metrics.widthPixels;
         usableHeight=probe.getHeight();
         boolean keyboard=metrics.heightPixels-usableHeight>dp(145);
+        boolean floating=false;
         if(Build.VERSION.SDK_INT>=30 && insets!=null) {
             WindowMetrics wm=windows.getMaximumWindowMetrics();
             Rect full=wm.getBounds();
@@ -110,6 +113,7 @@ public final class EdgeSwitcher extends Service {
             keyboard=insets.isVisible(WindowInsets.Type.ime()) || available-probe.getHeight()>dp(95);
             if(insets.isVisible(WindowInsets.Type.ime())) {
                 int ime=insets.getInsets(WindowInsets.Type.ime()).bottom;
+                floating=ime<=bars.bottom+dp(8) && available-probe.getHeight()<=dp(95);
                 if(ime>0) usableHeight=Math.min(usableHeight,full.height()-bars.top-ime);
             }
         }
@@ -117,7 +121,7 @@ public final class EdgeSwitcher extends Service {
         boolean ours=ime!=null && ime.startsWith(getPackageName()+"/");
         boolean show=keyboard && !ours && !getSystemService(KeyguardManager.class).isKeyguardLocked();
         if(!show) {removeButton();return;}
-        if(!dragging) place();
+        if(!dragging) {floatingIme=floating;place();}
         try {
             if(buttonAdded) windows.updateViewLayout(button,bubbleParams);
             else {
@@ -130,7 +134,7 @@ public final class EdgeSwitcher extends Service {
     private int maxX() {return Math.max(0,usableWidth-bubbleParams.width);}
     private void place() {
         bubbleParams.x=right?maxX():0;
-        bubbleParams.y=Math.round(maxY()*heightFraction);
+        bubbleParams.y=Math.round(maxY()*(floatingIme?floatingHeightFraction:heightFraction));
     }
     private boolean handleTouch(MotionEvent e) {
         switch(e.getActionMasked()) {
@@ -148,8 +152,11 @@ public final class EdgeSwitcher extends Service {
             case MotionEvent.ACTION_UP:
                 if(!dragging) {button.performClick();return true;}
                 right=bubbleParams.x>=maxX()/2;
-                heightFraction=maxY()==0?0:bubbleParams.y/(float)maxY();
-                prefs().edit().putBoolean("edgeRight",right).putFloat("edgeVertical",heightFraction).apply();
+                float position=maxY()==0?0:bubbleParams.y/(float)maxY();
+                if(floatingIme) floatingHeightFraction=position;
+                else heightFraction=position;
+                prefs().edit().putBoolean("edgeRight",right)
+                        .putFloat(floatingIme?"edgeFloatingVertical":"edgeVertical",position).apply();
                 // Snap the dragged control to the chosen side.
             case MotionEvent.ACTION_CANCEL:
                 dragging=false;refresh();return true;

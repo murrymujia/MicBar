@@ -27,7 +27,7 @@ final class DraftPanel extends LinearLayout {
 
     private final EditText draft;
     private final ToolButton edit, submit, hide, dictate, delete, settings, enter;
-    private final TextView toolbarSpace;
+    private final TextView toolbarSpace, floatKey;
     private final LinearLayout shortcutRow;
     private boolean peekChosen;
     private boolean showPeek() {
@@ -212,6 +212,10 @@ final class DraftPanel extends LinearLayout {
         });
         shortcutRow=new LinearLayout(context);bar.addView(shortcutRow,new LayoutParams(-2,-1));
         settings=tool(bar,() -> showPreferences(!preferencesOpen));
+        floatKey=labelKey("悬浮",14);
+        floatKey.setContentDescription("切回悬浮键盘");
+        floatKey.setOnClickListener(v->{feedback(v);setLandscapeDocked(false);});
+        bar.addView(floatKey,new LayoutParams(dp(50),dp(42)));
         edit=tool(bar,() -> showKeyboard(!expanded()));
         edit.setOnLongClickListener(v->{
             if(expanded()) return false;
@@ -252,7 +256,18 @@ final class DraftPanel extends LinearLayout {
         candidates = new LinearLayout(context); candidateScroll.addView(candidates);
         keys = new LinearLayout(context); keys.setOrientation(VERTICAL); keyboard.addView(keys);
         dragHandle = new FrameLayout(context);
-        dragHandle.setContentDescription("拖动悬浮键盘");
+        dragHandle.setContentDescription("拖动悬浮键盘，到底边停靠");
+        dragHandle.setAccessibilityDelegate(new View.AccessibilityDelegate() {
+            @Override public void onInitializeAccessibilityNodeInfo(View v,android.view.accessibility.AccessibilityNodeInfo info) {
+                super.onInitializeAccessibilityNodeInfo(v,info);
+                info.addAction(new android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction(
+                        android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK,"停靠键盘"));
+            }
+            @Override public boolean performAccessibilityAction(View v,int action,android.os.Bundle args) {
+                if(action==android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK && floating()) {setLandscapeDocked(true);return true;}
+                return super.performAccessibilityAction(v,action,args);
+            }
+        });
         dragHandle.setOnTouchListener((v,e) -> getParent() instanceof KeyboardSurface
                 && ((KeyboardSurface)getParent()).drag(v,e));
         grip = new View(context);
@@ -464,6 +479,9 @@ final class DraftPanel extends LinearLayout {
             dragHandle.removeView(hide);bar.addView(hide,new LayoutParams(dp(48),dp(48)));
             bar.removeView(dictate);bar.addView(dictate,0,new LayoutParams(dp(48),dp(48)));
         }
+        floatKey.setVisibility(expanded() && options.landscape() && !floating()?VISIBLE:GONE);
+        floatKey.setTextColor(options.onPrimary);
+        floatKey.setBackground(options.face(options.primary,14));
         dragHandle.setVisibility(floating()?VISIBLE:GONE);
         grip.setBackground(shape(muted,4));
         if (floating()) {
@@ -521,7 +539,16 @@ final class DraftPanel extends LinearLayout {
         attachKey(row,key,weight,fill,glyph==ToolButton.Icon.ENTER?26:14,action);return key;
     }
     boolean floating() {
-        return expanded() && getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+        return expanded() && options.landscape() && !options.prefs.getBoolean("landscapeDocked",false);
+    }
+    void setLandscapeDocked(boolean docked) {
+        if(!expanded() || !options.landscape()) return;
+        options.prefs.edit().putBoolean("landscapeDocked",docked).apply();
+        applyColors();
+        renderKeys();
+        renderCandidates();
+        positionBar();
+        requestLayout();
     }
     int backdrop() { return expanded() && !floating()?options.base:0; }
     boolean expanded() { return keyboard.getVisibility()==VISIBLE; }
@@ -756,7 +783,10 @@ final class DraftPanel extends LinearLayout {
         ToolButton lang=iconKey(bottom,ToolButton.Icon.GLOBE,english?"切换到拼音，长按切换输入法":"切换到英文，长按切换输入法",
                 1,options.key,()->{finishComposition(); english=!english;options.prefs.edit().putBoolean("englishTyping",english).apply();shift=false;caps=false;renderKeys();renderCandidates();});
         lang.setOnLongClickListener(v->{host.picker();return true;});
-        TextView space=textKey(bottom,english?"English":"拼音",4,15,options.key,13,()->{
+        TextView picker=textKey(bottom,"换键盘",1.55f,13,options.function,14,host::picker);
+        picker.setContentDescription("换键盘，切换系统输入法");
+        picker.setAutoSizeTextTypeUniformWithConfiguration(9,13,1,android.util.TypedValue.COMPLEX_UNIT_SP);
+        TextView space=textKey(bottom,english?"English":"拼音",2.45f,15,options.key,13,()->{
             if(composition.raw.isEmpty()) replaceSelection(" ");else if(!preferred()) selectCandidate(composition.raw,engine.key(' '));
         });
         space.setTextColor(muted);space.setContentDescription("空格，左右滑动移动光标");
@@ -897,6 +927,10 @@ final class DraftPanel extends LinearLayout {
             delete.setVisibility(showActions?VISIBLE:GONE);
             enter.setVisibility(showActions?VISIBLE:GONE);
             settings.setVisibility(expanded() && showActions?VISIBLE:GONE);
+        }
+        else {
+            delete.setVisibility(VISIBLE);enter.setVisibility(VISIBLE);
+            settings.setVisibility(expanded()?VISIBLE:GONE);
         }
         if(!expanded()) { delete.setVisibility(VISIBLE);enter.setVisibility(VISIBLE); }
         toolbarSpace.setVisibility(expanded() && !drafting && (!floating() || !composing) && (options.shortLandscape() || !inlineCandidates || candidateScroll.getVisibility()!=VISIBLE)?VISIBLE:GONE);

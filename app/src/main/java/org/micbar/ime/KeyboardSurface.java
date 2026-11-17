@@ -69,8 +69,17 @@ final class KeyboardSurface extends FrameLayout {
                 requestLayout();
                 return true;
             case MotionEvent.ACTION_UP:
-                if (moving) prefs.edit().putFloat("floatingKeyboardX", x).putFloat("floatingKeyboardLift", lift).apply();
-                else handle.performClick();
+                if (moving) {
+                    float dropY=e.getRawY()-downY;
+                    if (dropY>ViewConfiguration.get(getContext()).getScaledTouchSlop()
+                            && startLift*travelY-dropY<=dp(8)) {
+                        // Restore the last floating position when the user undocks.
+                        x=startX; lift=startLift;
+                        ((DraftPanel)getChildAt(0)).setLandscapeDocked(true);
+                    } else {
+                        prefs.edit().putFloat("floatingKeyboardX",x).putFloat("floatingKeyboardLift",lift).apply();
+                    }
+                } else handle.performClick();
                 moving = false;
                 return true;
             case MotionEvent.ACTION_CANCEL:

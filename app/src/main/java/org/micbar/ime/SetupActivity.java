@@ -70,7 +70,7 @@ public final class SetupActivity extends Activity {
         sample.setTextColor(INK); sample.setHintTextColor(MUTED); sample.setBackground(tint(0xffe8efe9,14));
         sample.setPadding(dp(16),dp(12),dp(16),dp(12)); add(sample,8,-2);
         label("在远程桌面里使用",19,true,24);
-        label("先点电脑的输入框。O+ 选择「平板键盘」，网易 UU 远程调出安卓系统输入法。远控中默认只显示四个按钮，可拖动麦克风挪开整排。其他应用默认展开打字键盘。横屏时可拖动键盘底部的短横条，点悬浮面板左下角的向下箭头可隐藏整个输入法。",15,false,6);
+        label("先点电脑的输入框。O+ 选择「平板键盘」，网易 UU 远程调出安卓系统输入法。远控中默认只显示四个按钮，可拖动麦克风挪开整排。其他应用默认展开打字键盘。横屏拖到底边可停靠，点「悬浮」切回。点空格左侧「换键盘」可切换输入法。横屏时可拖动键盘底部的短横条，点悬浮面板左下角的向下箭头可隐藏整个输入法。",15,false,6);
         Button typing=new Button(this);typing.setText("键盘设置");
         typing.setOnClickListener(v -> showKeyboardSettings());add(typing,8,-2);
         Button words=new Button(this);words.setText("个人词典");words.setOnClickListener(v->wordList());add(words,4,-2);

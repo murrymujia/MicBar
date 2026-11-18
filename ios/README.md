@@ -8,4 +8,6 @@ iPhone、iPad 需要 iOS / iPadOS 16 或以上。主 App 使用 Apple Speech 的
 
 安装 Xcode 和 XcodeGen 后，在本目录运行 `xcodegen generate`，打开 MicBar.xcodeproj，选择 MicBar。模拟器构建无需开发者签名。真机和 App Store 分发需要为两个 target 配置同一开发团队的签名和可注册的 bundle ID。
 
-0.1.1 的竖屏简体中文键盘在拼写时整行显示候选，选词后按光标前文字推荐后续词句。点建议只补入后续部分，可横滑查看更多候选，底行「工具」可切回工具栏。联想词表包含雾凇基础词典派生的补全和常用口语衔接。
+0.1.2 的竖屏简体中文键盘在拼写时整行显示候选，选词后按光标前文字推荐后续词句。点建议只补入后续部分，可横滑查看更多候选，底行「工具」可切回工具栏。联想词表包含雾凇基础词典派生的补全和常用口语衔接。
+
+本次预览扩大了空格键，收起了首页的使用说明。真机预览文件为 [iPhone 和 iPad 设备包](https://github.com/murrymujia/MicBar/releases/download/v1.28/MicBar-iOS-0.1.2-unsigned.ipa)。它需要个人签名。已经使用 AltStore Classic 的用户可从 My Apps 的加号导入 IPA，询问是否保留扩展时选择保留键盘。首次使用需要电脑上的 AltServer，免费账号通常每七天刷新一次。参阅 [AltStore 安装指南](https://faq.altstore.io/altstore-classic/how-to-install-altstore-macos)。安装后到「设置 → 通用 → 键盘 → 键盘 → 添加新键盘」选择轻声键盘。

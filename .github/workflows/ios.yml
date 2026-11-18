@@ -19,7 +19,7 @@ jobs:
           xcodebuild -scheme MicBar -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
           cd build/Build/Products/Release-iphonesimulator
           for bundle in MicBar.app MicBar.app/PlugIns/MicBarKeyboard.appex; do
-            test "$(plutil -extract CFBundleShortVersionString raw "$bundle/Info.plist")" = 0.1.1
+            test "$(plutil -extract CFBundleShortVersionString raw "$bundle/Info.plist")" = 0.1.2
           done
           test -f MicBar.app/PlugIns/MicBarKeyboard.appex/continuations.tsv
           test -f MicBar.app/PlugIns/MicBarKeyboard.appex/characters.tsv
@@ -32,11 +32,11 @@ jobs:
           mkdir Payload
           cp -R build/Build/Products/Release-iphoneos/MicBar.app Payload/
           test -x Payload/MicBar.app/PlugIns/MicBarKeyboard.appex/MicBarKeyboard
-          /usr/bin/zip -qry MicBar-iOS-0.1.1-unsigned.ipa Payload
+          /usr/bin/zip -qry MicBar-iOS-0.1.2-unsigned.ipa Payload
       - uses: actions/upload-artifact@v4
         with:
           name: MicBar-iOS-unsigned-device
-          path: ios/MicBar-iOS-0.1.1-unsigned.ipa
+          path: ios/MicBar-iOS-0.1.2-unsigned.ipa
       - name: Launch on iPhone
         working-directory: ios
         run: |

@@ -127,8 +127,10 @@ final class KeyboardController: UIInputViewController {
         let words = dictionaryForStrip()
         if words.isEmpty || showTools {
             key(folded ? "展开键盘" : "收起按键", tools) { self.folded.toggle(); self.showTools = false; self.redraw() }
-            key("退格", tools) { self.backspace() }
-            key("回车", tools) { self.textDocumentProxy.insertText("\n") }
+            if folded {
+                key("退格", tools) { self.backspace() }
+                key("回车", tools) { self.textDocumentProxy.insertText("\n") }
+            }
             key("隐藏", tools) { self.dismissKeyboard() }
         } else {
             let scroll = UIScrollView()
@@ -178,7 +180,8 @@ final class KeyboardController: UIInputViewController {
         }
         key(symbols ? "ABC" : "123", bottom) { self.commit(self.spelling); self.symbols.toggle(); self.redraw() }
         key(chinese ? "中 / 英" : "EN / 中", bottom) { self.commit(self.spelling); self.chinese.toggle(); self.redraw() }
-        key("空格", bottom) {
+        bottom.distribution = .fill
+        let space = key("空格", bottom) {
             self.commit(self.spelling.isEmpty ? " " : self.dictionary[self.spelling]?.first ?? self.spelling)
             self.redraw()
         }
@@ -187,5 +190,8 @@ final class KeyboardController: UIInputViewController {
             else { self.commit(self.dictionary[self.spelling]?.first ?? self.spelling) }
             self.redraw()
         }.accessibilityLabel = "确认或回车"
+        for other in bottom.arrangedSubviews where other !== space {
+            other.widthAnchor.constraint(equalTo: space.widthAnchor, multiplier: 0.48).isActive = true
+        }
     }
 }

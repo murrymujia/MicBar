@@ -136,9 +136,11 @@ struct DictationView: View {
                         voice.status = "已复制，五分钟内可在远控输入框粘贴。"
                     }.disabled(voice.draft.isEmpty || voice.phase != .idle)
                 }
-                Section("启用键盘") {
+                Section {
+                    DisclosureGroup("启用键盘与远控用法") {
                     Text("在「设置 → 通用 → 键盘 → 键盘 → 添加新键盘」中选择轻声键盘。在输入框长按地球键切换。")
                     Text("使用远控时，可在本 App 听写并复制，再回到输入框粘贴。iPad 支持分屏的应用可并排使用。")
+                    }
                 }
             }.navigationTitle("轻声键盘")
         }.onChange(of: scenePhase) { phase in

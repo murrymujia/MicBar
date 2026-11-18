@@ -20,7 +20,35 @@ public final class SetupActivity extends Activity {
     private Switch bubble;
     private boolean pendingOverlay;
     private EditText sample;
-    private LinearLayout content;
+    private LinearLayout content, home;
+    private final java.util.Map<String,LinearLayout> sections=new java.util.LinkedHashMap<>();
+    private final java.util.Map<String,TextView> headings=new java.util.LinkedHashMap<>();
+    private String activeSection="";
+    private void section(String title) {
+        content=home;
+        TextView entry=label(title,18,true,8);
+        entry.setPadding(dp(16),dp(14),dp(16),dp(14));
+        entry.setBackground(tint(0xffffffff,12));
+        headings.put(title,entry);
+        LinearLayout body=new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.setPadding(dp(12),0,dp(12),dp(12));
+        add(body,0,-2);
+        sections.put(title,body);
+        content=body;
+        entry.setOnClickListener(v->openSection(title.equals(activeSection)?"":title));
+    }
+    private void openSection(String title) {
+        activeSection=title;
+        for (String name:sections.keySet()) {
+            boolean open=name.equals(title);
+            sections.get(name).setVisibility(open?View.VISIBLE:View.GONE);
+            String detail="";
+            if (name.equals("快捷切换")) detail=bubble.isChecked()?"已开":"已关";
+            if (name.equals("版本与更新")) detail=BuildConfig.VERSION_NAME;
+            headings.get(name).setText(name+"    "+detail+(open?"  ▴":"  ▾"));
+        }
+    }
     private InputMethodManager manager;
     private static final int INK = 0xff152b27, MUTED = 0xff465f59, ACCENT = 0xff195950;
     private static final int IMPORT_MODEL=74;
@@ -60,20 +88,20 @@ public final class SetupActivity extends Activity {
         content.setPadding(dp(24),dp(28),dp(24),dp(36));
         content.setFocusableInTouchMode(true); page.addView(content,column);
         label("轻声键盘",32,true,0);
-        label("点麦克风开始听写，再点暂停。草稿默认收起，从四键栏的键盘图标上滑可在同一行查看草稿，再上滑收起。轻点展开改字，长按直接换输入法。点退格删除，轻点工具栏回车填入草稿，确认后再点同一位置的发送箭头。长按回车可直接填入并执行回车。",17,false,10);
         status=label("",16,true,25);
         next=new Button(this); next.setTextColor(0xffffffff); next.setBackground(tint(ACCENT,14)); next.setAllCaps(false);
         next.setOnClickListener(v -> advance()); add(next,10,50);
-        label("试说一句",19,true,26);
         sample=new EditText(this); sample.setSingleLine(false); sample.setMinLines(2); sample.setMaxLines(5);
         sample.setHint("点这里打字或听写"); sample.setTextSize(17);
         sample.setTextColor(INK); sample.setHintTextColor(MUTED); sample.setBackground(tint(0xffe8efe9,14));
         sample.setPadding(dp(16),dp(12),dp(16),dp(12)); add(sample,8,-2);
-        label("在远程桌面里使用",19,true,24);
-        label("先点电脑的输入框。O+ 选择「平板键盘」，网易 UU 远程调出安卓系统输入法。远控中默认只显示四个按钮，可拖动麦克风挪开整排。其他应用默认展开打字键盘。横屏拖到底边可停靠，点「悬浮」切回。点空格左侧「换键盘」可切换输入法。横屏时可拖动键盘底部的短横条，点悬浮面板左下角的向下箭头可隐藏整个输入法。",15,false,6);
+        home=content;
+        section("键盘与词典");
         Button typing=new Button(this);typing.setText("键盘设置");
         typing.setOnClickListener(v -> showKeyboardSettings());add(typing,8,-2);
         Button words=new Button(this);words.setText("个人词典");words.setOnClickListener(v->wordList());add(words,4,-2);
+        section("听写与远控");
+        label("在 O+ 里选择「平板键盘」。在四键栏上滑键盘图标查看草稿，长按可换输入法。",15,false,6);
         if (BuildConfig.HAS_WRITER) {
             label("离线写作",19,true,18);
             writerModel = new Button(this);
@@ -82,23 +110,6 @@ public final class SetupActivity extends Activity {
             add(writerModel,4,-2);
         label("暂停听写后长按麦克风，可整理、校对、缩短或翻译草稿；打字时也可以先选中文字。长按工具栏退格可撤销刚填入的听写。",15,false,6);
         }
-        label("双向切换输入法",19,true,24);
-        bubble=new Switch(this);
-        bubble.setText("贴边悬浮按钮");bubble.setTextSize(17); add(bubble,5,48);
-        label("输入时点屏幕边缘的小键盘，选择想用的输入法。四键语音栏也支持。拖动按钮可换边或调整高度。",15,false,4);
-        pendingOverlay=state!=null && state.getBoolean("pendingOverlay");
-        bubble.setOnClickListener(v -> {
-            if(!bubble.isChecked()) { setBubble(false); return; }
-            if(Settings.canDrawOverlays(this)) { setBubble(true); return; }
-            pendingOverlay=true;
-            bubble.setChecked(false);
-            try {
-                startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:"+getPackageName())));
-            } catch(ActivityNotFoundException ex) {
-                pendingOverlay=false;
-                Toast.makeText(this,"请在系统设置中允许轻声键盘显示悬浮窗",Toast.LENGTH_LONG).show();
-            }
-        });
         label("听写方式",19,true,24);
         micPermission=new Button(this);
         micPermission.setText("允许听写使用麦克风");
@@ -126,7 +137,24 @@ public final class SetupActivity extends Activity {
         terms.setOnCheckedChangeListener((box, checked) -> prefs.edit().putBoolean("termSpelling", checked).apply());
         add(terms, 4, -2);
         label("内置模式在平板上识别，不保存录音。设备语音服务可能联网。切换输入框或收起键盘会取消当前听写。",14,false,8);
-        label("版本与更新",19,true,20);
+        section("快捷切换");
+        bubble=new Switch(this);
+        bubble.setText("贴边悬浮按钮");bubble.setTextSize(17); add(bubble,5,48);
+        label("输入时点屏幕边缘的小键盘，选择想用的输入法。四键语音栏也支持。拖动按钮可换边或调整高度。",15,false,4);
+        pendingOverlay=state!=null && state.getBoolean("pendingOverlay");
+        bubble.setOnClickListener(v -> {
+            if(!bubble.isChecked()) { setBubble(false); return; }
+            if(Settings.canDrawOverlays(this)) { setBubble(true); return; }
+            pendingOverlay=true;
+            bubble.setChecked(false);
+            try {
+                startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:"+getPackageName())));
+            } catch(ActivityNotFoundException ex) {
+                pendingOverlay=false;
+                Toast.makeText(this,"请在系统设置中允许轻声键盘显示悬浮窗",Toast.LENGTH_LONG).show();
+            }
+        });
+        section("版本与更新");
         label("当前版本  " + BuildConfig.VERSION_NAME + " · " + EditionUpdates.editionName(BuildConfig.HAS_WRITER),15,false,4);
         CheckBox automatic=new CheckBox(this);
         automatic.setText("在非计费网络自动准备增量更新");automatic.setChecked(AutoUpdates.enabled(this));
@@ -140,22 +168,18 @@ public final class SetupActivity extends Activity {
             add(notify,4,-2);
         }
         installReady=new Button(this);
-        installReady.setOnClickListener(v->{String sha=AutoUpdates.ready(this);if(!sha.isEmpty())new EditionUpdates(this).install(sha);else refreshUpdate();});
+        installReady.setOnClickListener(v->{String sha=AutoUpdates.ready(this);if(!sha.isEmpty())new EditionUpdates(this).install(sha);else new EditionUpdates(this).check(installReady,true);});
         add(installReady,4,-2);refreshUpdate();
-        Button releases = new Button(this);
-        releases.setText("更新轻声键盘");
-        releases.setOnClickListener(v -> new EditionUpdates(this).check(releases,true));
-        add(releases,6,-2);
         Button editions=new Button(this);editions.setText("版本与切换");
         editions.setOnClickListener(v->new EditionUpdates(this).check(editions));add(editions,4,-2);
         Button about=new Button(this); about.setText("隐私与开源许可");
         about.setOnClickListener(v -> showAbout()); add(about,10,-2);
+        openSection(state==null?"":state.getString("section",""));
         setContentView(viewport);
     }
     private void refreshUpdate(){
         if(installReady==null)return;
-        installReady.setVisibility(AutoUpdates.ready(this).isEmpty()?View.GONE:View.VISIBLE);
-        installReady.setText("立即安装 "+AutoUpdates.state(this).getString("version",""));
+        installReady.setText(AutoUpdates.ready(this).isEmpty()?"更新轻声键盘":"立即安装 "+AutoUpdates.state(this).getString("version",""));
     }
     private void refreshWriter() {
         if(writerModel!=null) writerModel.setText("写作模型 · "+(WriterPack.enabled(this)?WriterPack.NAME:"内置 0.5B"));
@@ -193,9 +217,10 @@ public final class SetupActivity extends Activity {
         Intent service=new Intent(this,EdgeSwitcher.class);
         if(enabled) startForegroundService(service); else stopService(service);
         bubble.setChecked(enabled);
+        openSection(activeSection);
     }
     @Override protected void onSaveInstanceState(Bundle state) {
-        state.putBoolean("pendingOverlay",pendingOverlay);super.onSaveInstanceState(state);
+        state.putString("section",activeSection);state.putBoolean("pendingOverlay",pendingOverlay);super.onSaveInstanceState(state);
     }
     private final android.database.ContentObserver imeChanged=new android.database.ContentObserver(new Handler(Looper.getMainLooper())) {
         @Override public void onChange(boolean selfChange) { update(); }
@@ -226,6 +251,8 @@ public final class SetupActivity extends Activity {
     private void update() {
         if (next==null) return;
         micPermission.setVisibility(permitted()? View.GONE : View.VISIBLE);
+        next.setVisibility(selected()?View.GONE:View.VISIBLE);
+        status.setVisibility(selected()?View.GONE:View.VISIBLE);
         if (!enabled()) { status.setText("第 1 步 / 共 2 步"); next.setText("在系统中启用轻声键盘"); }
         else if (!selected()) { status.setText("第 2 步 / 共 2 步"); next.setText("选择轻声键盘"); }
         else { status.setText("轻声键盘已就绪"); next.setText("试用键盘"); }

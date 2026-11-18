@@ -395,6 +395,7 @@ public final class MicIme extends InputMethodService {
     @Override public void onFinishInput() { endEditor(); super.onFinishInput(); }
     @Override public void onWindowShown() {
         super.onWindowShown();
+        if (((MicBarApp)getApplication()).imeVisibilityChanged == null) EdgeSwitcher.restore(this);
         ((MicBarApp)getApplication()).setVisibleIme(this);
     }
     private void clearVisibleIme() {

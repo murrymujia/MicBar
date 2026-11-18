@@ -20,7 +20,7 @@
             android:taskAffinity="org.micbar.ime.picker" android:theme="@android:style/Theme.Material.Light.Dialog.Alert"
             android:windowSoftInputMode="stateAlwaysHidden"/>
         <receiver android:name=".EditionReplaced" android:exported="false">
-            <intent-filter><action android:name="android.intent.action.MY_PACKAGE_REPLACED"/></intent-filter>
+            <intent-filter><action android:name="android.intent.action.MY_PACKAGE_REPLACED"/><action android:name="android.intent.action.BOOT_COMPLETED"/></intent-filter>
         </receiver>
         <service android:name=".EdgeSwitcher" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-enabled draggable keyboard switcher overlay"/>

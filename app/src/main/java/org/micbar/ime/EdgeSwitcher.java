@@ -15,6 +15,16 @@ import android.widget.Toast;
 /** Optional screen-edge shortcut for the Android keyboard picker. */
 public final class EdgeSwitcher extends Service {
     static final String ENABLED="edgeSwitcher";
+    static void restore(Context context) {
+        if (!context.getSharedPreferences("micbar", MODE_PRIVATE).getBoolean(ENABLED, false)
+                || !Settings.canDrawOverlays(context)) return;
+        try {
+            context.startForegroundService(new Intent(context, EdgeSwitcher.class));
+        } catch (IllegalStateException restricted) {
+            // Retry when the user next opens the keyboard or its settings.
+        }
+    }
+
     private static final String CHANNEL="keyboard_switcher";
     private static final int TYPE=WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
     private static final int PASSIVE=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE

@@ -212,7 +212,7 @@ final class DraftPanel extends LinearLayout {
             return true;
         });
         shortcutRow=new LinearLayout(context);bar.addView(shortcutRow,new LayoutParams(-2,-1));
-        settings=tool(bar,() -> showPreferences(!preferencesOpen));
+        settings=tool(bar,this::moreTools);
         floatKey=labelKey("悬浮",14);
         floatKey.setContentDescription("切回悬浮键盘");
         floatKey.setOnClickListener(v->{feedback(v);setLandscapeDocked(false);});
@@ -517,7 +517,7 @@ final class DraftPanel extends LinearLayout {
         drawReturn();
         delete.display(ToolButton.Icon.DELETE,drafting?"删除草稿文字":"删除",ink,0);
         settings.display(preferencesOpen?ToolButton.Icon.BACK:ToolButton.Icon.SETTINGS,
-                preferencesOpen?"返回键盘":"键盘设置",ink,0);
+                preferencesOpen?"返回键盘":"更多工具",ink,0);
         edit.display(expanded()?ToolButton.Icon.FOLD:ToolButton.Icon.KEYBOARD,expanded()?"折叠键盘":"展开键盘",muted,0);
         if(!expanded()) edit.setTooltipText("轻点展开键盘，长按换输入法，上滑显示或收起草稿");
         submit.display(ToolButton.Icon.CHECK,"填入草稿",blue,accent);
@@ -615,6 +615,14 @@ final class DraftPanel extends LinearLayout {
         applyColors();positionBar();requestLayout();
         renderCandidates();
         if(show) {if(drafting) draft.requestFocus();openEngine();renderKeys();}
+    }
+    private void moreTools() {
+        if(preferencesOpen) { showPreferences(false); return; }
+        PopupMenu menu=new PopupMenu(getContext(),settings);
+        menu.getMenu().add("键盘设置").setOnMenuItemClickListener(item->{showPreferences(true);return true;});
+        menu.getMenu().add("四键语音栏").setOnMenuItemClickListener(item->{showKeyboard(false);return true;});
+        menu.getMenu().add("换输入法").setOnMenuItemClickListener(item->{host.picker();return true;});
+        menu.show();
     }
     private void showPreferences(boolean show) {
         if(!expanded()) return;
@@ -836,10 +844,7 @@ final class DraftPanel extends LinearLayout {
         ToolButton lang=iconKey(bottom,ToolButton.Icon.GLOBE,english?"切换到拼音，长按切换输入法":"切换到英文，长按切换输入法",
                 1,options.key,()->{finishComposition(); english=!english;options.prefs.edit().putBoolean("englishTyping",english).apply();shift=false;caps=false;renderKeys();renderCandidates();});
         lang.setOnLongClickListener(v->{host.picker();return true;});
-        TextView picker=textKey(bottom,"换键盘",1.55f,13,options.function,14,host::picker);
-        picker.setContentDescription("换键盘，切换系统输入法");
-        picker.setAutoSizeTextTypeUniformWithConfiguration(9,13,1,android.util.TypedValue.COMPLEX_UNIT_SP);
-        TextView space=textKey(bottom,english?"English":"拼音",2.45f,15,options.key,13,()->{
+        TextView space=textKey(bottom,english?"English":"拼音",4f,15,options.key,13,()->{
             if(composition.raw.isEmpty()) replaceSelection(" ");else if(!preferred()) selectCandidate(composition.raw,engine.key(' '));
         });
         space.setTextColor(muted);space.setContentDescription("空格，左右滑动移动光标");
@@ -959,7 +964,7 @@ final class DraftPanel extends LinearLayout {
         candidates.removeAllViews();
         boolean composing=!composition.raw.isEmpty();
         java.util.List<String> next=composing?java.util.Collections.emptyList():nextWords();
-        boolean full=portraitChinese() && !showTypingTools && (composing || !next.isEmpty());
+        boolean full=!preferencesOpen && portraitChinese() && !showTypingTools && (composing || !next.isEmpty());
         // Swap the existing toolbar row for one full-width candidate row. Never add height.
         if(full && candidateScroll.getParent()!=keyboard){
             bar.removeView(candidateScroll);keyboard.addView(candidateScroll,0,new LayoutParams(-1,dp(options.phonePortrait()?44:50)));
@@ -972,20 +977,10 @@ final class DraftPanel extends LinearLayout {
         boolean loading=!ready && !english && !symbols;
         candidateScroll.setVisibility(expanded() && !preferencesOpen && (full || ((composing || loading) && !(portraitChinese() && showTypingTools)))?VISIBLE:GONE);
         // Let the suggestion strip take the tool row while spelling; editing keys remain on the keyboard.
-        if (floating()) {
-            delete.setVisibility(GONE);enter.setVisibility(GONE);
-            settings.setVisibility(!composing?VISIBLE:GONE);
-        } else if(options.phonePortrait()) {
-            boolean showActions=candidateScroll.getVisibility()!=VISIBLE;
-            delete.setVisibility(showActions?VISIBLE:GONE);
-            enter.setVisibility(showActions?VISIBLE:GONE);
-            settings.setVisibility(expanded() && showActions?VISIBLE:GONE);
-        }
-        else {
-            delete.setVisibility(VISIBLE);enter.setVisibility(VISIBLE);
-            settings.setVisibility(expanded()?VISIBLE:GONE);
-        }
-        if(!expanded()) { delete.setVisibility(VISIBLE);enter.setVisibility(VISIBLE); }
+        delete.setVisibility(expanded()?GONE:VISIBLE);
+        enter.setVisibility(expanded()?GONE:VISIBLE);
+        settings.setVisibility(expanded() && (preferencesOpen || candidateScroll.getVisibility()!=VISIBLE)?VISIBLE:GONE);
+        edit.setVisibility(!expanded() || preferencesOpen?VISIBLE:GONE);
         toolbarSpace.setVisibility(expanded() && !drafting && (!floating() || !composing) && (options.shortLandscape() || !inlineCandidates || candidateScroll.getVisibility()!=VISIBLE)?VISIBLE:GONE);
         candidateScroll.scrollTo(0,0);
         if(!composing) {

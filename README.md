@@ -16,7 +16,7 @@ Android 8.0+ 平板和手机使用的小麦克风输入法，支持 arm64-v8a、
 
 ## iPhone 和 iPad
 
-[iOS 真机预览下载、签名与启用指南](ios/README.md)。主 App 支持设备端听写、修改和复制，键盘扩展提供基础拼音、英文和符号。适用于 iOS / iPadOS 16 及以上。
+[iOS 真机预览下载、签名与启用指南](ios/README.md)。主 App 支持设备端听写、修改和复制，键盘扩展提供基础拼音、英文和符号。适用于 iOS / iPadOS 16 及以上。已有 AltStore Classic 的用户可以在 Sources 中添加[轻声键盘订阅地址](https://raw.githubusercontent.com/murrymujia/MicBar/main/distribution/altstore.json)，以后直接在 AltStore 查看更新。
 
 ## 在 O+ 和网易 UU 远程里使用
 
